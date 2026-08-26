@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: worktrack
+    name: qsign
     runtime: node
     buildCommand: npm install
     startCommand: node lib/migrate.js && node server.js
@@ -14,9 +14,9 @@ services:
         sync: false
       - key: DATABASE_URL
         fromDatabase:
-          name: worktrack-db
+          name: qsign-db
           property: connectionString
 
 databases:
-  - name: worktrack-db
+  - name: qsign-db
     plan: free

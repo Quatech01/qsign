@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#1d4ed8">
-<title>WorkTrack Admin</title>
+<title>Qsign Admin</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -150,7 +150,7 @@ tr:hover td{background:var(--faint)}
 <!-- LOGIN OVERLAY -->
 <div class="login-overlay" id="login-overlay">
   <div class="login-box">
-    <div class="login-title">WorkTrack Admin</div>
+    <div class="login-title">Qsign Admin</div>
     <div class="login-sub">Sign in with your admin account</div>
     <div class="err-box" id="adm-err"></div>
     <div class="field">
@@ -169,7 +169,7 @@ tr:hover td{background:var(--faint)}
 <!-- SIDEBAR -->
 <aside class="sidebar" id="sidebar">
   <div class="sb-brand">
-    <div class="sb-brand-title">WorkTrack</div>
+    <div class="sb-brand-title">Qsign</div>
     <div class="sb-brand-sub">Admin Dashboard</div>
   </div>
   <nav class="sb-nav">
@@ -478,8 +478,8 @@ tr:hover td{background:var(--faint)}
 
 <script>
 // ── State ─────────────────────────────────────────────────────────────────────
-let TOKEN    = localStorage.getItem('wt_token');
-let USER     = JSON.parse(localStorage.getItem('wt_user') || 'null');
+let TOKEN    = localStorage.getItem('qs_token');
+let USER     = JSON.parse(localStorage.getItem('qs_user') || 'null');
 let editId   = null;
 let workerId = null;
 let locId    = null;
@@ -523,16 +523,16 @@ async function doAdminLogin() {
     const r = await api('POST', '/api/auth/login', { email, password }, false);
     if (r.user?.role !== 'admin') { showErr(errEl, 'Admin access required'); return; }
     TOKEN = r.token; USER = r.user;
-    localStorage.setItem('wt_token', TOKEN);
-    localStorage.setItem('wt_user',  JSON.stringify(USER));
+    localStorage.setItem('qs_token', TOKEN);
+    localStorage.setItem('qs_user',  JSON.stringify(USER));
     boot();
   } catch (e) { showErr(errEl, e.message || 'Login failed'); }
 }
 
 function doLogout() {
   TOKEN = null; USER = null;
-  localStorage.removeItem('wt_token');
-  localStorage.removeItem('wt_user');
+  localStorage.removeItem('qs_token');
+  localStorage.removeItem('qs_user');
   location.reload();
 }
 

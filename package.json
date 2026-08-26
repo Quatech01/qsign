@@ -1,7 +1,7 @@
 {
-  "name": "worktrack",
+  "name": "qsign",
   "version": "1.0.0",
-  "description": "WorkTrack — GPS-enforced attendance and timesheet management",
+  "description": "Qsign — GPS-enforced attendance and timesheet management",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {

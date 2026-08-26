@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#1d4ed8">
 <link rel="manifest" href="/manifest.json">
-<title>WorkTrack</title>
+<title>Qsign</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -142,7 +142,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
       <div class="brand-icon">
         <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 5h2v6l-4.24 2.53-.76-1.32L11 12.2V7z"/></svg>
       </div>
-      <h1>WorkTrack</h1>
+      <h1>Qsign</h1>
       <p>Attendance & time management</p>
     </div>
     <div class="login-form">
@@ -164,7 +164,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 <!-- MAIN APP -->
 <div id="screen-app" class="screen">
   <div class="topbar">
-    <span class="topbar-logo">WorkTrack</span>
+    <span class="topbar-logo">Qsign</span>
     <div class="topbar-user">
       <span id="user-name-top"></span>
       <div class="avatar" id="user-avatar"></div>
@@ -260,8 +260,8 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 
 <script>
 // ── State ─────────────────────────────────────────────────────────────────────
-let TOKEN      = localStorage.getItem('wt_token');
-let USER       = JSON.parse(localStorage.getItem('wt_user') || 'null');
+let TOKEN      = localStorage.getItem('qs_token');
+let USER       = JSON.parse(localStorage.getItem('qs_user') || 'null');
 let gpsCoords  = null;
 let gpsError   = null;
 let clockedIn  = false;
@@ -303,8 +303,8 @@ async function doLogin() {
     const r = await api('POST', '/api/auth/login', { email, password }, false);
     TOKEN = r.token;
     USER  = r.user;
-    localStorage.setItem('wt_token', TOKEN);
-    localStorage.setItem('wt_user',  JSON.stringify(USER));
+    localStorage.setItem('qs_token', TOKEN);
+    localStorage.setItem('qs_user',  JSON.stringify(USER));
     showApp();
   } catch (e) {
     showErr(errEl, e.message || 'Login failed');
@@ -313,8 +313,8 @@ async function doLogin() {
 
 function doLogout() {
   TOKEN = null; USER = null;
-  localStorage.removeItem('wt_token');
-  localStorage.removeItem('wt_user');
+  localStorage.removeItem('qs_token');
+  localStorage.removeItem('qs_user');
   gpsCoords = null;
   clearInterval(gpsTimer);
   showScreen('login');

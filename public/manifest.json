@@ -1,6 +1,6 @@
 {
-  "name": "WorkTrack",
-  "short_name": "WorkTrack",
+  "name": "Qsign",
+  "short_name": "Qsign",
   "description": "GPS-enforced attendance tracking for workers",
   "start_url": "/",
   "display": "standalone",
