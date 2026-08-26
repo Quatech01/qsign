@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#1d4ed8">
+<title>WorkTrack Admin</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#2563eb;--blue-dk:#1d4ed8;--blue-lt:#eff6ff;--blue-mid:#dbeafe;
+  --green:#16a34a;--green-lt:#f0fdf4;
+  --red:#dc2626;--red-lt:#fef2f2;
+  --amber:#d97706;--amber-lt:#fffbeb;
+  --bg:#f1f5f9;--panel:#fff;--border:#e2e8f0;
+  --text:#0f172a;--muted:#64748b;--faint:#f8fafc;
+  --sidebar-w:220px;--topbar-h:60px;
+  --radius:12px;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#0f172a;--panel:#1e293b;--border:#334155;
+    --text:#f1f5f9;--muted:#94a3b8;--faint:#0f172a;
+    --blue-lt:#1e3a5f;--blue-mid:#1e3a5f;--green-lt:#052e16;--red-lt:#450a0a;--amber-lt:#451a03;
+  }
+}
+body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100dvh}
+
+/* SIDEBAR */
+.sidebar{width:var(--sidebar-w);background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;left:0;bottom:0;z-index:30}
+.sb-brand{padding:1.25rem 1.5rem 1rem;border-bottom:1px solid var(--border)}
+.sb-brand-title{font-size:1.05rem;font-weight:800;color:var(--blue);letter-spacing:-.02em}
+.sb-brand-sub{font-size:.7rem;color:var(--muted);margin-top:.15rem;text-transform:uppercase;letter-spacing:.06em}
+.sb-nav{flex:1;padding:.75rem .75rem;display:flex;flex-direction:column;gap:.15rem}
+.sb-item{display:flex;align-items:center;gap:.65rem;padding:.6rem .85rem;border-radius:8px;cursor:pointer;font-size:.875rem;font-weight:600;color:var(--muted);border:none;background:none;width:100%;text-align:left;transition:all .15s}
+.sb-item svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.sb-item:hover{background:var(--faint);color:var(--text)}
+.sb-item.on{background:var(--blue-lt);color:var(--blue)}
+.sb-footer{padding:.75rem 1rem;border-top:1px solid var(--border);font-size:.73rem;color:var(--muted)}
+.sb-logout{width:100%;background:none;border:none;color:var(--red);font-size:.8rem;font-weight:700;cursor:pointer;text-align:left;padding:.4rem 0}
+
+/* TOPBAR */
+.topbar{position:fixed;top:0;left:var(--sidebar-w);right:0;height:var(--topbar-h);background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 1.75rem;z-index:20}
+.topbar-title{font-size:1rem;font-weight:700}
+.topbar-right{display:flex;align-items:center;gap:1rem}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.live-label{font-size:.75rem;color:var(--muted);font-weight:600}
+.worker-btn{padding:.4rem .85rem;border-radius:8px;background:var(--blue);color:#fff;border:none;font-size:.8rem;font-weight:700;cursor:pointer}
+
+/* MAIN */
+.main{margin-left:var(--sidebar-w);margin-top:var(--topbar-h);flex:1;padding:1.75rem;overflow:hidden}
+
+/* TABS */
+.tab-pane{display:none}
+.tab-pane.on{display:block}
+
+/* STAT CARDS */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-bottom:1.5rem}
+.stat-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.25rem}
+.stat-label{font-size:.72rem;color:var(--muted);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.stat-val{font-size:2rem;font-weight:800;letter-spacing:-.03em;margin-top:.2rem;font-variant-numeric:tabular-nums}
+.stat-sub{font-size:.72rem;color:var(--muted);margin-top:.15rem}
+
+/* SECTION */
+.section{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1.25rem}
+.section-head{display:flex;align-items:center;justify-content:space-between;padding:.9rem 1.25rem;border-bottom:1px solid var(--border)}
+.section-title{font-size:.85rem;font-weight:700}
+.section-actions{display:flex;gap:.5rem;align-items:center}
+.btn-sm{padding:.3rem .75rem;border-radius:6px;border:none;font-size:.75rem;font-weight:700;cursor:pointer;transition:opacity .15s}
+.btn-sm:hover{opacity:.85}
+.btn-blue{background:var(--blue);color:#fff}
+.btn-outline{background:transparent;border:1.5px solid var(--border);color:var(--text)}
+.btn-red{background:var(--red);color:#fff}
+
+/* TABLE */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th{padding:.65rem 1rem;text-align:left;font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--faint);border-bottom:1px solid var(--border)}
+td{padding:.7rem 1rem;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--faint)}
+.badge{display:inline-flex;align-items:center;gap:.3rem;padding:.2rem .55rem;border-radius:99px;font-size:.7rem;font-weight:700}
+.badge-green{background:var(--green-lt);color:var(--green)}
+.badge-red{background:var(--red-lt);color:var(--red)}
+.badge-blue{background:var(--blue-lt);color:var(--blue)}
+.badge-amber{background:var(--amber-lt);color:var(--amber)}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+.empty-row td{text-align:center;color:var(--muted);padding:2rem}
+
+/* FILTERS */
+.filters{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--faint)}
+.filter-input{padding:.35rem .7rem;border-radius:6px;border:1.5px solid var(--border);background:var(--panel);color:var(--text);font-size:.8rem;outline:none;min-width:100px}
+.filter-input:focus{border-color:var(--blue)}
+.filter-label{font-size:.72rem;font-weight:600;color:var(--muted)}
+
+/* MODAL */
+.modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:50;display:none;align-items:center;justify-content:center;padding:1rem}
+.modal-backdrop.open{display:flex}
+.modal{background:var(--panel);border-radius:var(--radius);width:100%;max-width:480px;max-height:90dvh;overflow-y:auto;border:1px solid var(--border)}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:1.1rem 1.5rem;border-bottom:1px solid var(--border)}
+.modal-title{font-size:.95rem;font-weight:800}
+.modal-close{background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.2rem;line-height:1;padding:.2rem}
+.modal-body{padding:1.25rem 1.5rem;display:flex;flex-direction:column;gap:.9rem}
+.modal-footer{padding:.85rem 1.5rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:.5rem}
+.field{display:flex;flex-direction:column;gap:.3rem}
+.field label{font-size:.72rem;font-weight:700;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+.field input,.field select,.field textarea{padding:.6rem .9rem;border:1.5px solid var(--border);border-radius:8px;background:var(--panel);color:var(--text);font-size:.875rem;outline:none;transition:border-color .15s;-webkit-appearance:none}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--blue)}
+.field textarea{resize:vertical;min-height:70px;font-family:inherit}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.req{color:var(--red)}
+
+/* LIVE TABLE */
+.live-empty{padding:2rem;text-align:center;color:var(--muted);font-size:.82rem}
+
+/* PAGINATION */
+.pagination{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.25rem;font-size:.78rem;color:var(--muted);border-top:1px solid var(--border)}
+.page-btns{display:flex;gap:.3rem}
+.page-btn{padding:.3rem .65rem;border-radius:5px;border:1.5px solid var(--border);background:var(--panel);font-size:.75rem;cursor:pointer;color:var(--text)}
+.page-btn:disabled{opacity:.4;cursor:not-allowed}
+.page-btn.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+
+/* REPORTS */
+.report-bar-wrap{background:var(--faint);border-radius:6px;height:8px;overflow:hidden;min-width:80px}
+.report-bar{height:100%;background:var(--blue);border-radius:6px;transition:width .3s}
+
+/* LOGIN overlay */
+.login-overlay{position:fixed;inset:0;background:var(--bg);z-index:100;display:flex;align-items:center;justify-content:center;padding:1.5rem}
+.login-box{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:2rem;width:100%;max-width:380px;display:flex;flex-direction:column;gap:1rem}
+.login-title{font-size:1.2rem;font-weight:800;text-align:center;color:var(--blue)}
+.login-sub{font-size:.8rem;color:var(--muted);text-align:center}
+.btn-full{width:100%;padding:.7rem;border-radius:8px;border:none;background:var(--blue);color:#fff;font-size:.9rem;font-weight:700;cursor:pointer}
+.err-box{padding:.55rem .8rem;border-radius:6px;font-size:.78rem;color:var(--red);background:var(--red-lt);display:none}
+
+/* Loader */
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--faint);border-top-color:var(--blue);border-radius:50%;animation:sp .6s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+@media(max-width:720px){
+  .sidebar{transform:translateX(-100%);transition:transform .25s}
+  .sidebar.open{transform:none}
+  .topbar,.main{left:0;margin-left:0}
+  .main{padding:1rem}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN OVERLAY -->
+<div class="login-overlay" id="login-overlay">
+  <div class="login-box">
+    <div class="login-title">WorkTrack Admin</div>
+    <div class="login-sub">Sign in with your admin account</div>
+    <div class="err-box" id="adm-err"></div>
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="adm-email" placeholder="admin@company.com" autocomplete="email">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="adm-pass" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn-full" onclick="doAdminLogin()">Sign In</button>
+    <p style="font-size:.72rem;color:var(--muted);text-align:center">Worker? <a href="/" style="color:var(--blue)">Go to app →</a></p>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div class="sb-brand">
+    <div class="sb-brand-title">WorkTrack</div>
+    <div class="sb-brand-sub">Admin Dashboard</div>
+  </div>
+  <nav class="sb-nav">
+    <button class="sb-item on" id="nav-dashboard" onclick="showTab('dashboard')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </button>
+    <button class="sb-item" id="nav-live" onclick="showTab('live')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="9"/></svg>
+      Live Attendance
+    </button>
+    <button class="sb-item" id="nav-records" onclick="showTab('records')">
+      <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+      All Records
+    </button>
+    <button class="sb-item" id="nav-workers" onclick="showTab('workers')">
+      <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      Workers
+    </button>
+    <button class="sb-item" id="nav-locations" onclick="showTab('locations')">
+      <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      Locations
+    </button>
+    <button class="sb-item" id="nav-reports" onclick="showTab('reports')">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Reports
+    </button>
+  </nav>
+  <div class="sb-footer">
+    <div id="sb-user-name" style="font-weight:700;margin-bottom:.25rem"></div>
+    <button class="sb-logout" onclick="doLogout()">Sign Out</button>
+  </div>
+</aside>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="topbar-title" id="topbar-title">Dashboard</div>
+  <div class="topbar-right">
+    <span class="live-dot"></span><span class="live-label">Live</span>
+    <button class="worker-btn" onclick="openWorkerModal()">+ Add Worker</button>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- DASHBOARD -->
+  <div class="tab-pane on" id="tab-dashboard">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Workers</div>
+        <div class="stat-val" id="st-workers">—</div>
+        <div class="stat-sub">Active accounts</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Currently In</div>
+        <div class="stat-val" style="color:var(--green)" id="st-live">—</div>
+        <div class="stat-sub">Clocked in now</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Hours Today</div>
+        <div class="stat-val" style="color:var(--blue)" id="st-hours">—</div>
+        <div class="stat-sub">Across all workers</div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-head">
+        <span class="section-title">Currently Clocked In</span>
+        <span class="live-dot"></span>
+      </div>
+      <div id="live-table-dash"></div>
+    </div>
+  </div>
+
+  <!-- LIVE -->
+  <div class="tab-pane" id="tab-live">
+    <div class="section">
+      <div class="section-head">
+        <span class="section-title">Live Attendance</span>
+        <button class="btn-sm btn-outline" onclick="loadLive()">Refresh</button>
+      </div>
+      <div id="live-table-full"></div>
+    </div>
+  </div>
+
+  <!-- RECORDS -->
+  <div class="tab-pane" id="tab-records">
+    <div class="section">
+      <div class="section-head"><span class="section-title">Attendance Records</span></div>
+      <div class="filters">
+        <span class="filter-label">Worker:</span>
+        <select class="filter-input" id="rec-worker-filter" onchange="loadRecords(1)">
+          <option value="">All workers</option>
+        </select>
+        <span class="filter-label">From:</span>
+        <input type="date" class="filter-input" id="rec-from" onchange="loadRecords(1)">
+        <span class="filter-label">To:</span>
+        <input type="date" class="filter-input" id="rec-to" onchange="loadRecords(1)">
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>Worker</th><th>Date</th><th>Clock In</th><th>Clock Out</th><th>Hours</th><th>Location</th><th>Status</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="rec-tbody"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="rec-pagination"></div>
+    </div>
+  </div>
+
+  <!-- WORKERS -->
+  <div class="tab-pane" id="tab-workers">
+    <div class="section">
+      <div class="section-head">
+        <span class="section-title">Workers</span>
+        <button class="btn-sm btn-blue" onclick="openWorkerModal()">+ Add Worker</button>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Email</th><th>Department</th><th>Phone</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="workers-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOCATIONS -->
+  <div class="tab-pane" id="tab-locations">
+    <div class="section">
+      <div class="section-head">
+        <span class="section-title">Work Locations</span>
+        <button class="btn-sm btn-blue" onclick="openLocationModal()">+ Add Location</button>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Address</th><th>Coordinates</th><th>Radius</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="locations-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- REPORTS -->
+  <div class="tab-pane" id="tab-reports">
+    <div class="section">
+      <div class="section-head"><span class="section-title">Hours Summary</span></div>
+      <div class="filters">
+        <span class="filter-label">From:</span>
+        <input type="date" class="filter-input" id="rpt-from" onchange="loadReports()">
+        <span class="filter-label">To:</span>
+        <input type="date" class="filter-input" id="rpt-to" onchange="loadReports()">
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Worker</th><th>Department</th><th>Shifts</th><th>Total Hours</th><th>Open Shifts</th><th>Progress</th></tr></thead>
+          <tbody id="rpt-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- EDIT RECORD MODAL -->
+<div class="modal-backdrop" id="edit-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title">Edit Attendance Record</span>
+      <button class="modal-close" onclick="closeModal('edit-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Worker</label>
+        <input type="text" id="edit-worker-name" disabled>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Clock In <span class="req">*</span></label>
+          <input type="datetime-local" id="edit-in">
+        </div>
+        <div class="field">
+          <label>Clock Out</label>
+          <input type="datetime-local" id="edit-out">
+        </div>
+      </div>
+      <div class="field">
+        <label>Reason for Edit <span class="req">*</span></label>
+        <textarea id="edit-reason" placeholder="Explain why you are adjusting this record…"></textarea>
+      </div>
+      <div class="err-box" id="edit-err"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sm btn-outline" onclick="closeModal('edit-modal')">Cancel</button>
+      <button class="btn-sm btn-blue" onclick="saveEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- WORKER MODAL -->
+<div class="modal-backdrop" id="worker-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title" id="worker-modal-title">Add Worker</span>
+      <button class="modal-close" onclick="closeModal('worker-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-row">
+        <div class="field">
+          <label>Full Name <span class="req">*</span></label>
+          <input type="text" id="wm-name" placeholder="Jane Smith">
+        </div>
+        <div class="field">
+          <label>Email <span class="req">*</span></label>
+          <input type="email" id="wm-email" placeholder="jane@co.com">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Department</label>
+          <input type="text" id="wm-dept" placeholder="e.g. Warehouse">
+        </div>
+        <div class="field">
+          <label>Phone</label>
+          <input type="tel" id="wm-phone" placeholder="+44 7xxx xxxxxx">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Role</label>
+          <select id="wm-role">
+            <option value="worker">Worker</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Password <span id="wm-pass-req" class="req">*</span></label>
+          <input type="password" id="wm-pass" placeholder="Min 6 characters">
+        </div>
+      </div>
+      <div class="field" id="wm-active-wrap" style="display:none">
+        <label>Account Status</label>
+        <select id="wm-active">
+          <option value="true">Active</option>
+          <option value="false">Deactivated</option>
+        </select>
+      </div>
+      <div class="err-box" id="wm-err"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sm btn-outline" onclick="closeModal('worker-modal')">Cancel</button>
+      <button class="btn-sm btn-blue" id="wm-save-btn" onclick="saveWorker()">Add Worker</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOCATION MODAL -->
+<div class="modal-backdrop" id="location-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title" id="loc-modal-title">Add Location</span>
+      <button class="modal-close" onclick="closeModal('location-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Location Name <span class="req">*</span></label>
+        <input type="text" id="lm-name" placeholder="e.g. Main Warehouse">
+      </div>
+      <div class="field">
+        <label>Address</label>
+        <input type="text" id="lm-address" placeholder="e.g. 123 Industrial St, London">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Latitude <span class="req">*</span></label>
+          <input type="number" id="lm-lat" step="any" placeholder="51.5074">
+        </div>
+        <div class="field">
+          <label>Longitude <span class="req">*</span></label>
+          <input type="number" id="lm-lng" step="any" placeholder="-0.1278">
+        </div>
+      </div>
+      <div class="field">
+        <label>Geofence Radius (metres) <span class="req">*</span></label>
+        <input type="number" id="lm-radius" value="200" min="10" max="5000">
+      </div>
+      <button class="btn-sm btn-outline" style="align-self:flex-start" onclick="useMyGPS()">
+        📍 Use My Current Location
+      </button>
+      <div id="lm-gps-status" style="font-size:.73rem;color:var(--muted)"></div>
+      <div class="field" id="lm-active-wrap" style="display:none">
+        <label>Status</label>
+        <select id="lm-active">
+          <option value="true">Active</option>
+          <option value="false">Inactive</option>
+        </select>
+      </div>
+      <div class="err-box" id="lm-err"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sm btn-outline" onclick="closeModal('location-modal')">Cancel</button>
+      <button class="btn-sm btn-blue" id="lm-save-btn" onclick="saveLocation()">Add Location</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let TOKEN    = localStorage.getItem('wt_token');
+let USER     = JSON.parse(localStorage.getItem('wt_user') || 'null');
+let editId   = null;
+let workerId = null;
+let locId    = null;
+let recPage  = 1;
+let workers  = [];
+
+const TITLES = {
+  dashboard:'Dashboard', live:'Live Attendance', records:'All Records',
+  workers:'Workers', locations:'Locations', reports:'Reports'
+};
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+function boot() {
+  if (TOKEN && USER?.role === 'admin') {
+    document.getElementById('login-overlay').style.display = 'none';
+    document.getElementById('sb-user-name').textContent = USER.name;
+    loadDashboard();
+    loadWorkerList();
+    setLivePolling();
+    setDefaultDates();
+  }
+}
+
+function setDefaultDates() {
+  const today = new Date().toISOString().slice(0, 10);
+  const week  = new Date(Date.now() - 7*864e5).toISOString().slice(0, 10);
+  document.getElementById('rec-from').value = week;
+  document.getElementById('rec-to').value   = today;
+  document.getElementById('rpt-from').value = week;
+  document.getElementById('rpt-to').value   = today;
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+async function doAdminLogin() {
+  const email    = document.getElementById('adm-email').value.trim();
+  const password = document.getElementById('adm-pass').value;
+  const errEl    = document.getElementById('adm-err');
+  errEl.style.display = 'none';
+  if (!email || !password) { showErr(errEl, 'Enter email and password'); return; }
+  try {
+    const r = await api('POST', '/api/auth/login', { email, password }, false);
+    if (r.user?.role !== 'admin') { showErr(errEl, 'Admin access required'); return; }
+    TOKEN = r.token; USER = r.user;
+    localStorage.setItem('wt_token', TOKEN);
+    localStorage.setItem('wt_user',  JSON.stringify(USER));
+    boot();
+  } catch (e) { showErr(errEl, e.message || 'Login failed'); }
+}
+
+function doLogout() {
+  TOKEN = null; USER = null;
+  localStorage.removeItem('wt_token');
+  localStorage.removeItem('wt_user');
+  location.reload();
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('on'));
+  document.querySelectorAll('.sb-item').forEach(b => b.classList.remove('on'));
+  document.getElementById(`tab-${name}`).classList.add('on');
+  document.getElementById(`nav-${name}`).classList.add('on');
+  document.getElementById('topbar-title').textContent = TITLES[name];
+  if (name === 'live')      loadLive();
+  if (name === 'records')   loadRecords(1);
+  if (name === 'workers')   loadWorkers();
+  if (name === 'locations') loadLocations();
+  if (name === 'reports')   loadReports();
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+async function loadDashboard() {
+  try {
+    const [dash, live] = await Promise.all([
+      api('GET', '/api/admin/dashboard'),
+      api('GET', '/api/admin/live'),
+    ]);
+    document.getElementById('st-workers').textContent = dash.totalWorkers;
+    document.getElementById('st-live').textContent    = dash.currentlyIn;
+    document.getElementById('st-hours').textContent   = dash.hoursToday.toFixed(1) + 'h';
+    document.getElementById('live-table-dash').innerHTML = renderLiveTable(live);
+  } catch (e) { console.error(e); }
+}
+
+// ── Live ──────────────────────────────────────────────────────────────────────
+async function loadLive() {
+  try {
+    const live = await api('GET', '/api/admin/live');
+    document.getElementById('live-table-full').innerHTML = renderLiveTable(live);
+  } catch {}
+}
+
+function renderLiveTable(rows) {
+  if (!rows.length) return '<div class="live-empty">Nobody is clocked in right now</div>';
+  return `<div class="tbl-wrap"><table>
+    <thead><tr><th>Worker</th><th>Department</th><th>Location</th><th>Clocked In</th><th>Duration</th></tr></thead>
+    <tbody>${rows.map(r => {
+      const cin = new Date(r.check_in_time);
+      const dur = fmtDuration(Date.now() - cin);
+      return `<tr>
+        <td><strong>${r.name}</strong></td>
+        <td>${r.department || '<span style="color:var(--muted)">—</span>'}</td>
+        <td>${r.location_name || '—'}</td>
+        <td>${cin.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</td>
+        <td><span class="badge badge-green">${dur}</span></td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table></div>`;
+}
+
+let liveTimer = null;
+function setLivePolling() {
+  clearInterval(liveTimer);
+  liveTimer = setInterval(() => { loadDashboard(); }, 30000);
+}
+
+// ── Records ───────────────────────────────────────────────────────────────────
+async function loadRecords(page = recPage) {
+  recPage = page;
+  const uid  = document.getElementById('rec-worker-filter').value;
+  const from = document.getElementById('rec-from').value;
+  const to   = document.getElementById('rec-to').value;
+  const qs   = new URLSearchParams({ page, ...(uid && {user_id:uid}), ...(from && {date_from:from}), ...(to && {date_to:to}) });
+  try {
+    const r = await api('GET', `/api/admin/attendance?${qs}`);
+    const tbody = document.getElementById('rec-tbody');
+    tbody.innerHTML = r.records.length
+      ? r.records.map(renderRecordRow).join('')
+      : '<tr class="empty-row"><td colspan="8">No records found</td></tr>';
+    renderPagination(r.total, r.pages, page);
+  } catch {}
+}
+
+function renderRecordRow(r) {
+  const d    = new Date(r.check_in_time);
+  const date = d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+  const cin  = d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  const cout = r.check_out_time
+    ? new Date(r.check_out_time).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})
+    : '—';
+  const hrs  = r.hours_worked ? Number(r.hours_worked).toFixed(2)+'h' : '—';
+  const badge = r.check_out_time
+    ? `<span class="badge badge-blue">Complete</span>`
+    : `<span class="badge badge-green"><span class="dot"></span>Active</span>`;
+  const edited = r.edited_at ? `<br><span style="font-size:.65rem;color:var(--amber)">✏ Edited by ${r.edited_by_name||'admin'}</span>` : '';
+  return `<tr>
+    <td><strong>${r.worker_name}</strong>${r.department ? `<br><span style="font-size:.7rem;color:var(--muted)">${r.department}</span>` : ''}</td>
+    <td>${date}</td>
+    <td style="font-variant-numeric:tabular-nums">${cin}</td>
+    <td style="font-variant-numeric:tabular-nums">${cout}</td>
+    <td style="font-variant-numeric:tabular-nums">${hrs}</td>
+    <td>${r.location_name || '—'}${edited}</td>
+    <td>${badge}</td>
+    <td>
+      <button class="btn-sm btn-outline" onclick="openEditModal(${JSON.stringify(r).replace(/"/g,'&quot;')})">Edit</button>
+    </td>
+  </tr>`;
+}
+
+function renderPagination(total, pages, page) {
+  const el = document.getElementById('rec-pagination');
+  el.innerHTML = `<span>${total} record${total!==1?'s':''}</span>
+    <div class="page-btns">
+      <button class="page-btn" onclick="loadRecords(${page-1})" ${page<=1?'disabled':''}>← Prev</button>
+      <button class="page-btn on">${page}</button>
+      <button class="page-btn" onclick="loadRecords(${page+1})" ${page>=pages?'disabled':''}>Next →</button>
+    </div>`;
+}
+
+// ── Edit modal ────────────────────────────────────────────────────────────────
+function openEditModal(r) {
+  editId = r.id;
+  document.getElementById('edit-worker-name').value = r.worker_name || '';
+  document.getElementById('edit-in').value  = toLocalDT(r.check_in_time);
+  document.getElementById('edit-out').value = r.check_out_time ? toLocalDT(r.check_out_time) : '';
+  document.getElementById('edit-reason').value = '';
+  document.getElementById('edit-err').style.display = 'none';
+  openModal('edit-modal');
+}
+
+async function saveEdit() {
+  const cin    = document.getElementById('edit-in').value;
+  const cout   = document.getElementById('edit-out').value;
+  const reason = document.getElementById('edit-reason').value.trim();
+  const errEl  = document.getElementById('edit-err');
+  errEl.style.display = 'none';
+  if (!cin)    { showErr(errEl, 'Clock-in time is required'); return; }
+  if (!reason) { showErr(errEl, 'Reason for edit is required'); return; }
+  try {
+    await api('PUT', `/api/admin/attendance/${editId}`, {
+      check_in_time:  cin,
+      check_out_time: cout || null,
+      edit_reason:    reason,
+    });
+    closeModal('edit-modal');
+    loadRecords();
+    loadDashboard();
+  } catch (e) { showErr(errEl, e.message || 'Update failed'); }
+}
+
+// ── Workers ───────────────────────────────────────────────────────────────────
+async function loadWorkerList() {
+  try {
+    workers = await api('GET', '/api/admin/workers');
+    const sel = document.getElementById('rec-worker-filter');
+    sel.innerHTML = '<option value="">All workers</option>' +
+      workers.map(w => `<option value="${w.id}">${w.name}</option>`).join('');
+  } catch {}
+}
+
+async function loadWorkers() {
+  await loadWorkerList();
+  const tbody = document.getElementById('workers-tbody');
+  tbody.innerHTML = workers.length
+    ? workers.map(w => `<tr>
+        <td><strong>${w.name}</strong></td>
+        <td>${w.email}</td>
+        <td>${w.department || '—'}</td>
+        <td>${w.phone || '—'}</td>
+        <td>${w.active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-red">Deactivated</span>'}</td>
+        <td><button class="btn-sm btn-outline" onclick="openWorkerModal(${JSON.stringify(w).replace(/"/g,'&quot;')})">Edit</button></td>
+      </tr>`).join('')
+    : '<tr class="empty-row"><td colspan="6">No workers yet</td></tr>';
+}
+
+function openWorkerModal(w = null) {
+  workerId = w?.id || null;
+  document.getElementById('worker-modal-title').textContent = w ? 'Edit Worker' : 'Add Worker';
+  document.getElementById('wm-save-btn').textContent = w ? 'Save Changes' : 'Add Worker';
+  document.getElementById('wm-name').value  = w?.name || '';
+  document.getElementById('wm-email').value = w?.email || '';
+  document.getElementById('wm-dept').value  = w?.department || '';
+  document.getElementById('wm-phone').value = w?.phone || '';
+  document.getElementById('wm-role').value  = w?.role || 'worker';
+  document.getElementById('wm-pass').value  = '';
+  document.getElementById('wm-pass').placeholder = w ? 'Leave blank to keep current' : 'Min 6 characters';
+  document.getElementById('wm-pass-req').style.display = w ? 'none' : '';
+  document.getElementById('wm-active-wrap').style.display = w ? '' : 'none';
+  if (w) document.getElementById('wm-active').value = String(w.active);
+  document.getElementById('wm-err').style.display = 'none';
+  openModal('worker-modal');
+}
+
+async function saveWorker() {
+  const name     = document.getElementById('wm-name').value.trim();
+  const email    = document.getElementById('wm-email').value.trim();
+  const dept     = document.getElementById('wm-dept').value.trim();
+  const phone    = document.getElementById('wm-phone').value.trim();
+  const role     = document.getElementById('wm-role').value;
+  const password = document.getElementById('wm-pass').value;
+  const active   = document.getElementById('wm-active').value === 'true';
+  const errEl    = document.getElementById('wm-err');
+  errEl.style.display = 'none';
+  if (!name || !email) { showErr(errEl, 'Name and email are required'); return; }
+  if (!workerId && !password) { showErr(errEl, 'Password is required for new workers'); return; }
+  if (password && password.length < 6) { showErr(errEl, 'Password must be at least 6 characters'); return; }
+  try {
+    const body = { name, email, department:dept||null, phone:phone||null, role, ...(password && {password}), ...(workerId && {active}) };
+    if (workerId) await api('PUT', `/api/admin/workers/${workerId}`, body);
+    else          await api('POST', '/api/admin/workers', body);
+    closeModal('worker-modal');
+    loadWorkers();
+    loadWorkerList();
+  } catch (e) { showErr(errEl, e.message || 'Save failed'); }
+}
+
+// ── Locations ─────────────────────────────────────────────────────────────────
+async function loadLocations() {
+  try {
+    const locs = await api('GET', '/api/admin/locations');
+    const tbody = document.getElementById('locations-tbody');
+    tbody.innerHTML = locs.length
+      ? locs.map(l => `<tr>
+          <td><strong>${l.name}</strong></td>
+          <td>${l.address || '—'}</td>
+          <td style="font-size:.73rem;font-variant-numeric:tabular-nums">${Number(l.lat).toFixed(5)}, ${Number(l.lng).toFixed(5)}</td>
+          <td>${l.radius_meters}m</td>
+          <td>${l.active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-red">Inactive</span>'}</td>
+          <td><button class="btn-sm btn-outline" onclick="openLocationModal(${JSON.stringify(l).replace(/"/g,'&quot;')})">Edit</button></td>
+        </tr>`).join('')
+      : '<tr class="empty-row"><td colspan="6">No locations yet — add one to allow clock-in</td></tr>';
+  } catch {}
+}
+
+function openLocationModal(l = null) {
+  locId = l?.id || null;
+  document.getElementById('loc-modal-title').textContent = l ? 'Edit Location' : 'Add Location';
+  document.getElementById('lm-save-btn').textContent = l ? 'Save Changes' : 'Add Location';
+  document.getElementById('lm-name').value    = l?.name || '';
+  document.getElementById('lm-address').value = l?.address || '';
+  document.getElementById('lm-lat').value     = l?.lat || '';
+  document.getElementById('lm-lng').value     = l?.lng || '';
+  document.getElementById('lm-radius').value  = l?.radius_meters || 200;
+  document.getElementById('lm-active-wrap').style.display = l ? '' : 'none';
+  if (l) document.getElementById('lm-active').value = String(l.active);
+  document.getElementById('lm-err').style.display = 'none';
+  document.getElementById('lm-gps-status').textContent = '';
+  openModal('location-modal');
+}
+
+function useMyGPS() {
+  const status = document.getElementById('lm-gps-status');
+  status.textContent = 'Getting location…';
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      document.getElementById('lm-lat').value = pos.coords.latitude.toFixed(6);
+      document.getElementById('lm-lng').value = pos.coords.longitude.toFixed(6);
+      status.textContent = `Location set (accuracy ±${Math.round(pos.coords.accuracy)}m)`;
+    },
+    err => { status.textContent = 'Could not get location: ' + err.message; },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+async function saveLocation() {
+  const name   = document.getElementById('lm-name').value.trim();
+  const addr   = document.getElementById('lm-address').value.trim();
+  const lat    = parseFloat(document.getElementById('lm-lat').value);
+  const lng    = parseFloat(document.getElementById('lm-lng').value);
+  const radius = parseInt(document.getElementById('lm-radius').value);
+  const active = document.getElementById('lm-active').value === 'true';
+  const errEl  = document.getElementById('lm-err');
+  errEl.style.display = 'none';
+  if (!name)        { showErr(errEl, 'Location name is required'); return; }
+  if (isNaN(lat) || isNaN(lng)) { showErr(errEl, 'Valid latitude and longitude required'); return; }
+  if (!radius || radius < 10)   { showErr(errEl, 'Radius must be at least 10m'); return; }
+  try {
+    const body = { name, address:addr||null, lat, lng, radius_meters:radius, ...(locId && {active}) };
+    if (locId) await api('PUT', `/api/admin/locations/${locId}`, body);
+    else       await api('POST', '/api/admin/locations', body);
+    closeModal('location-modal');
+    loadLocations();
+  } catch (e) { showErr(errEl, e.message || 'Save failed'); }
+}
+
+// ── Reports ───────────────────────────────────────────────────────────────────
+async function loadReports() {
+  const from = document.getElementById('rpt-from').value;
+  const to   = document.getElementById('rpt-to').value;
+  const qs   = new URLSearchParams({ ...(from && {date_from:from}), ...(to && {date_to:to}) });
+  try {
+    const r = await api('GET', `/api/admin/reports?${qs}`);
+    const maxHours = Math.max(...r.rows.map(w => Number(w.total_hours)), 1);
+    const tbody = document.getElementById('rpt-tbody');
+    tbody.innerHTML = r.rows.length
+      ? r.rows.map(w => {
+          const pct = Math.round(Number(w.total_hours) / maxHours * 100);
+          return `<tr>
+            <td><strong>${w.name}</strong></td>
+            <td>${w.department || '—'}</td>
+            <td style="font-variant-numeric:tabular-nums">${w.shifts}</td>
+            <td style="font-variant-numeric:tabular-nums">${Number(w.total_hours).toFixed(2)}h</td>
+            <td>${w.open_shifts ? `<span class="badge badge-amber">${w.open_shifts} open</span>` : '—'}</td>
+            <td style="min-width:120px"><div class="report-bar-wrap"><div class="report-bar" style="width:${pct}%"></div></div></td>
+          </tr>`;
+        }).join('')
+      : '<tr class="empty-row"><td colspan="6">No data</td></tr>';
+  } catch {}
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+async function api(method, path, body, auth = true) {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json', ...(auth && TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {}) },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  };
+  const r = await fetch(path, opts);
+  const d = await r.json();
+  if (!r.ok) { const e = new Error(d.error || r.status); Object.assign(e, d); throw e; }
+  return d;
+}
+
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function showErr(el, msg) { el.textContent = msg; el.style.display = ''; }
+function toLocalDT(iso) {
+  const d = new Date(iso);
+  return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+}
+function fmtDuration(ms) {
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  return h ? `${h}h ${String(m).padStart(2,'0')}m` : `${m}m`;
+}
+
+// Close modals on backdrop click
+document.querySelectorAll('.modal-backdrop').forEach(b => {
+  b.addEventListener('click', e => { if (e.target === b) b.classList.remove('open'); });
+});
+
+boot();
+</script>
+</body>
+</html>

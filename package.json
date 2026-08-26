@@ -1,0 +1,19 @@
+{
+  "name": "worktrack",
+  "version": "1.0.0",
+  "description": "WorkTrack — GPS-enforced attendance and timesheet management",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "migrate": "node lib/migrate.js"
+  },
+  "engines": { "node": ">=18.0.0" },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.12.0"
+  }
+}
