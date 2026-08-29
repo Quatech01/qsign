@@ -383,7 +383,7 @@ tr:hover td{background:var(--faint)}
 
 <!-- WORKER MODAL -->
 <div class="modal-backdrop" id="worker-modal">
-  <div class="modal">
+  <div class="modal modal-wide">
     <div class="modal-head">
       <span class="modal-title" id="worker-modal-title">Add Worker</span>
       <button class="modal-close" onclick="closeModal('worker-modal')">✕</button>
@@ -422,12 +422,54 @@ tr:hover td{background:var(--faint)}
           <input type="password" id="wm-pass" placeholder="Min 6 characters">
         </div>
       </div>
-      <div class="field">
-        <label>Assigned Location <span class="req">*</span></label>
-        <select id="wm-location">
-          <option value="">— Select a work location —</option>
-        </select>
+
+      <!-- LOCATION SECTION -->
+      <div style="border-top:1px solid var(--border);margin:.25rem 0 .75rem;padding-top:.75rem">
+        <div style="font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.6rem">Work Location <span class="req">*</span></div>
+        <div style="display:flex;gap:.5rem;margin-bottom:.75rem">
+          <button type="button" id="wm-loc-tab-existing" class="btn-sm btn-blue" onclick="switchLocTab('existing')" style="flex:1">Use Existing</button>
+          <button type="button" id="wm-loc-tab-new" class="btn-sm btn-outline" onclick="switchLocTab('new')" style="flex:1">+ Create New Location</button>
+        </div>
+        <!-- Existing location picker -->
+        <div id="wm-loc-existing">
+          <div class="field">
+            <select id="wm-location">
+              <option value="">— Select a work location —</option>
+            </select>
+          </div>
+        </div>
+        <!-- New location creator -->
+        <div id="wm-loc-new" style="display:none">
+          <div class="field">
+            <label>Location Name <span class="req">*</span></label>
+            <input type="text" id="wm-loc-name" placeholder="e.g. Engineering Building">
+          </div>
+          <div class="field">
+            <label>Search Address</label>
+            <div class="map-search-wrap">
+              <input type="text" id="wm-loc-search" placeholder="Type an address to search…" autocomplete="off"
+                oninput="onWmMapSearch(this.value)"
+                style="padding:.6rem .9rem;border:1.5px solid var(--border);border-radius:8px;background:var(--panel);color:var(--text);font-size:.875rem;outline:none;width:100%;transition:border-color .15s">
+              <div class="map-search-results" id="wm-map-search-results"></div>
+            </div>
+          </div>
+          <p class="map-hint">📍 Click on the map to drop the pin</p>
+          <div id="wm-loc-map" style="height:220px;border-radius:8px;border:1.5px solid var(--border);overflow:hidden;margin-bottom:.75rem"></div>
+          <div class="field-row">
+            <div class="field">
+              <label>Geofence Radius (metres) <span class="req">*</span></label>
+              <input type="number" id="wm-loc-radius" value="200" min="10" max="5000" oninput="updateWmRadiusCircle()">
+            </div>
+            <div class="field" style="justify-content:flex-end">
+              <button class="btn-sm btn-outline" style="align-self:flex-end;height:38px" onclick="useWmGPS()">📍 My Location</button>
+            </div>
+          </div>
+          <div id="wm-loc-coords" style="font-size:.72rem;color:var(--muted);margin-bottom:.5rem"></div>
+          <input type="hidden" id="wm-loc-lat">
+          <input type="hidden" id="wm-loc-lng">
+        </div>
       </div>
+
       <div class="field" id="wm-active-wrap" style="display:none">
         <label>Account Status</label>
         <select id="wm-active">
@@ -724,8 +766,91 @@ async function loadWorkers() {
     : '<tr class="empty-row"><td colspan="6">No workers yet</td></tr>';
 }
 
+// ── Worker modal — location tab ───────────────────────────────────────────────
+let wmMap = null, wmMarker = null, wmCircle = null, wmSearchTimer = null;
+let wmLocTab = 'existing';
+
+function switchLocTab(tab) {
+  wmLocTab = tab;
+  document.getElementById('wm-loc-existing').style.display = tab === 'existing' ? '' : 'none';
+  document.getElementById('wm-loc-new').style.display      = tab === 'new'      ? '' : 'none';
+  document.getElementById('wm-loc-tab-existing').className = tab === 'existing' ? 'btn-sm btn-blue' : 'btn-sm btn-outline';
+  document.getElementById('wm-loc-tab-new').className      = tab === 'new'      ? 'btn-sm btn-blue' : 'btn-sm btn-outline';
+  if (tab === 'new') {
+    setTimeout(() => {
+      if (!wmMap) {
+        wmMap = L.map('wm-loc-map').setView([51.505, -0.09], 5);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors', maxZoom: 19
+        }).addTo(wmMap);
+        wmMap.on('click', e => wmPlacePin(e.latlng.lat, e.latlng.lng, true));
+      }
+      wmMap.invalidateSize();
+    }, 50);
+  }
+}
+
+function wmPlacePin(lat, lng, reverseGeocode) {
+  document.getElementById('wm-loc-lat').value = lat;
+  document.getElementById('wm-loc-lng').value = lng;
+  document.getElementById('wm-loc-coords').textContent = `📍 ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  const r = parseInt(document.getElementById('wm-loc-radius').value) || 200;
+  const ll = [lat, lng];
+  if (wmMarker) wmMarker.setLatLng(ll);
+  else wmMarker = L.marker(ll, { draggable: true }).addTo(wmMap)
+    .on('dragend', e => wmPlacePin(e.target.getLatLng().lat, e.target.getLatLng().lng, true));
+  if (wmCircle) wmCircle.setLatLng(ll).setRadius(r);
+  else wmCircle = L.circle(ll, { radius: r, color: '#2563eb', fillColor: '#2563eb', fillOpacity: 0.15, weight: 2 }).addTo(wmMap);
+  if (reverseGeocode) {
+    fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
+      .then(r => r.json()).then(d => {
+        if (d.display_name) document.getElementById('wm-loc-search').value = d.display_name;
+      }).catch(() => {});
+  }
+}
+
+function updateWmRadiusCircle() {
+  const r = parseInt(document.getElementById('wm-loc-radius').value) || 200;
+  if (wmCircle) wmCircle.setRadius(r);
+}
+
+function onWmMapSearch(q) {
+  clearTimeout(wmSearchTimer);
+  const box = document.getElementById('wm-map-search-results');
+  if (q.length < 3) { box.style.display = 'none'; return; }
+  wmSearchTimer = setTimeout(async () => {
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5`);
+      const results = await res.json();
+      if (!results.length) { box.style.display = 'none'; return; }
+      box.innerHTML = results.map((r, i) =>
+        `<div class="msr-item" onclick="wmSelectResult(${i})" data-lat="${r.lat}" data-lon="${r.lon}" data-name="${encodeURIComponent(r.display_name)}">${r.display_name}</div>`
+      ).join('');
+      box.style.display = 'block';
+    } catch {}
+  }, 400);
+}
+
+function wmSelectResult(i) {
+  const item = document.querySelectorAll('#wm-map-search-results .msr-item')[i];
+  const lat = parseFloat(item.dataset.lat), lon = parseFloat(item.dataset.lon);
+  document.getElementById('wm-loc-search').value = decodeURIComponent(item.dataset.name);
+  document.getElementById('wm-map-search-results').style.display = 'none';
+  wmMap.setView([lat, lon], 16);
+  wmPlacePin(lat, lon, false);
+}
+
+function useWmGPS() {
+  navigator.geolocation.getCurrentPosition(
+    pos => { wmMap.setView([pos.coords.latitude, pos.coords.longitude], 16); wmPlacePin(pos.coords.latitude, pos.coords.longitude, true); },
+    err => showErr(document.getElementById('wm-err'), 'Could not get location: ' + err.message),
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
 async function openWorkerModal(w = null) {
   workerId = w?.id || null;
+  wmLocTab = 'existing';
   document.getElementById('worker-modal-title').textContent = w ? 'Edit Worker' : 'Add Worker';
   document.getElementById('wm-save-btn').textContent = w ? 'Save Changes' : 'Add Worker';
   document.getElementById('wm-name').value  = w?.name || '';
@@ -739,7 +864,16 @@ async function openWorkerModal(w = null) {
   document.getElementById('wm-active-wrap').style.display = w ? '' : 'none';
   if (w) document.getElementById('wm-active').value = String(w.active);
   document.getElementById('wm-err').style.display = 'none';
-  // Populate location dropdown
+  // Reset new-location fields
+  ['wm-loc-name','wm-loc-search','wm-loc-lat','wm-loc-lng','wm-loc-coords'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('wm-loc-coords').textContent = '';
+  document.getElementById('wm-loc-radius').value = 200;
+  document.getElementById('wm-map-search-results').style.display = 'none';
+  wmMarker = wmCircle = null; wmMap = null;
+  switchLocTab('existing');
+  // Populate existing locations dropdown
   try {
     const locs = await api('GET', '/api/admin/locations');
     const sel = document.getElementById('wm-location');
@@ -750,26 +884,47 @@ async function openWorkerModal(w = null) {
 }
 
 async function saveWorker() {
-  const name        = document.getElementById('wm-name').value.trim();
-  const email       = document.getElementById('wm-email').value.trim();
-  const dept        = document.getElementById('wm-dept').value.trim();
-  const phone       = document.getElementById('wm-phone').value.trim();
-  const role        = document.getElementById('wm-role').value;
-  const password    = document.getElementById('wm-pass').value;
-  const active      = document.getElementById('wm-active').value === 'true';
-  const location_id = document.getElementById('wm-location').value || null;
-  const errEl       = document.getElementById('wm-err');
+  const name     = document.getElementById('wm-name').value.trim();
+  const email    = document.getElementById('wm-email').value.trim();
+  const dept     = document.getElementById('wm-dept').value.trim();
+  const phone    = document.getElementById('wm-phone').value.trim();
+  const role     = document.getElementById('wm-role').value;
+  const password = document.getElementById('wm-pass').value;
+  const active   = document.getElementById('wm-active').value === 'true';
+  const errEl    = document.getElementById('wm-err');
   errEl.style.display = 'none';
   if (!name || !email) { showErr(errEl, 'Name and email are required'); return; }
   if (!workerId && !password) { showErr(errEl, 'Password is required for new workers'); return; }
   if (password && password.length < 6) { showErr(errEl, 'Password must be at least 6 characters'); return; }
+
+  let location_id = null;
+
+  if (wmLocTab === 'existing') {
+    location_id = document.getElementById('wm-location').value || null;
+    if (!location_id) { showErr(errEl, 'Please select a work location'); return; }
+  } else {
+    // Create new location first
+    const locName   = document.getElementById('wm-loc-name').value.trim();
+    const locLat    = parseFloat(document.getElementById('wm-loc-lat').value);
+    const locLng    = parseFloat(document.getElementById('wm-loc-lng').value);
+    const locRadius = parseInt(document.getElementById('wm-loc-radius').value) || 200;
+    const locAddr   = document.getElementById('wm-loc-search').value.trim();
+    if (!locName) { showErr(errEl, 'Location name is required'); return; }
+    if (isNaN(locLat) || isNaN(locLng)) { showErr(errEl, 'Please pin the location on the map'); return; }
+    try {
+      const loc = await api('POST', '/api/admin/locations', { name: locName, address: locAddr || null, lat: locLat, lng: locLng, radius_meters: locRadius });
+      location_id = loc.id;
+    } catch (e) { showErr(errEl, 'Failed to create location: ' + (e.message || 'Server error')); return; }
+  }
+
   try {
-    const body = { name, email, department:dept||null, phone:phone||null, role, location_id, ...(password && {password}), ...(workerId && {active}) };
+    const body = { name, email, department: dept||null, phone: phone||null, role, location_id, ...(password && {password}), ...(workerId && {active}) };
     if (workerId) await api('PUT', `/api/admin/workers/${workerId}`, body);
     else          await api('POST', '/api/admin/workers', body);
     closeModal('worker-modal');
     loadWorkers();
     loadWorkerList();
+    loadLocations();
   } catch (e) { showErr(errEl, e.message || 'Save failed'); }
 }
 
