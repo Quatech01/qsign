@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#1d4ed8">
 <title>Qsign Admin</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -124,6 +126,16 @@ tr:hover td{background:var(--faint)}
 /* REPORTS */
 .report-bar-wrap{background:var(--faint);border-radius:6px;height:8px;overflow:hidden;min-width:80px}
 .report-bar{height:100%;background:var(--blue);border-radius:6px;transition:width .3s}
+
+/* MAP PICKER */
+#loc-map{height:240px;border-radius:8px;border:1.5px solid var(--border);overflow:hidden;margin-bottom:.75rem;z-index:0}
+.map-search-wrap{position:relative;margin-bottom:.75rem}
+.map-search-results{position:absolute;top:100%;left:0;right:0;background:var(--panel);border:1.5px solid var(--blue);border-top:none;border-radius:0 0 8px 8px;z-index:2000;max-height:200px;overflow-y:auto;display:none}
+.msr-item{padding:.5rem .9rem;cursor:pointer;font-size:.82rem;border-bottom:1px solid var(--border);line-height:1.35}
+.msr-item:last-child{border-bottom:none}
+.msr-item:hover{background:var(--faint)}
+.map-hint{font-size:.72rem;color:var(--muted);margin-bottom:.5rem}
+.modal-wide{max-width:600px!important}
 
 /* LOGIN overlay */
 .login-overlay{position:fixed;inset:0;background:var(--bg);z-index:100;display:flex;align-items:center;justify-content:center;padding:1.5rem}
@@ -428,7 +440,7 @@ tr:hover td{background:var(--faint)}
 
 <!-- LOCATION MODAL -->
 <div class="modal-backdrop" id="location-modal">
-  <div class="modal">
+  <div class="modal modal-wide">
     <div class="modal-head">
       <span class="modal-title" id="loc-modal-title">Add Location</span>
       <button class="modal-close" onclick="closeModal('location-modal')">✕</button>
@@ -439,27 +451,28 @@ tr:hover td{background:var(--faint)}
         <input type="text" id="lm-name" placeholder="e.g. Main Warehouse">
       </div>
       <div class="field">
-        <label>Address</label>
-        <input type="text" id="lm-address" placeholder="e.g. 123 Industrial St, London">
-      </div>
-      <div class="field-row">
-        <div class="field">
-          <label>Latitude <span class="req">*</span></label>
-          <input type="number" id="lm-lat" step="any" placeholder="51.5074">
-        </div>
-        <div class="field">
-          <label>Longitude <span class="req">*</span></label>
-          <input type="number" id="lm-lng" step="any" placeholder="-0.1278">
+        <label>Search Address</label>
+        <div class="map-search-wrap">
+          <input type="text" id="lm-search" placeholder="Type an address to search…" autocomplete="off"
+            oninput="onMapSearch(this.value)" style="padding:.6rem .9rem;border:1.5px solid var(--border);border-radius:8px;background:var(--panel);color:var(--text);font-size:.875rem;outline:none;width:100%;transition:border-color .15s">
+          <div class="map-search-results" id="map-search-results"></div>
         </div>
       </div>
-      <div class="field">
-        <label>Geofence Radius (metres) <span class="req">*</span></label>
-        <input type="number" id="lm-radius" value="200" min="10" max="5000">
+      <p class="map-hint">📍 Click anywhere on the map to place the pin — or use the search above.</p>
+      <div id="loc-map"></div>
+      <div class="field-row" style="margin-bottom:.75rem">
+        <div class="field">
+          <label>Geofence Radius (metres) <span class="req">*</span></label>
+          <input type="number" id="lm-radius" value="200" min="10" max="5000" oninput="updateRadiusCircle()">
+        </div>
+        <div class="field" style="justify-content:flex-end">
+          <button class="btn-sm btn-outline" style="align-self:flex-end;height:38px" onclick="useMyGPS()">📍 My Location</button>
+        </div>
       </div>
-      <button class="btn-sm btn-outline" style="align-self:flex-start" onclick="useMyGPS()">
-        📍 Use My Current Location
-      </button>
-      <div id="lm-gps-status" style="font-size:.73rem;color:var(--muted)"></div>
+      <div id="lm-coords" style="font-size:.72rem;color:var(--muted);margin-bottom:.5rem"></div>
+      <input type="hidden" id="lm-lat">
+      <input type="hidden" id="lm-lng">
+      <input type="hidden" id="lm-address">
       <div class="field" id="lm-active-wrap" style="display:none">
         <label>Status</label>
         <select id="lm-active">
@@ -764,32 +777,109 @@ async function loadLocations() {
   } catch {}
 }
 
+// ── Map picker ────────────────────────────────────────────────────────────────
+let locMap = null, locMarker = null, locCircle = null, searchTimer = null;
+
+function initLocMap(lat, lng) {
+  const center = (lat && lng) ? [lat, lng] : [51.505, -0.09];
+  if (locMap) {
+    locMap.setView(center, lat ? 16 : 5);
+  } else {
+    locMap = L.map('loc-map').setView(center, lat ? 16 : 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors', maxZoom: 19
+    }).addTo(locMap);
+    locMap.on('click', e => placePin(e.latlng.lat, e.latlng.lng, true));
+  }
+  if (lat && lng) placePin(lat, lng, false);
+  else { locMarker?.remove(); locMarker = null; locCircle?.remove(); locCircle = null; }
+  setTimeout(() => locMap.invalidateSize(), 50);
+}
+
+function placePin(lat, lng, reverseGeocode) {
+  document.getElementById('lm-lat').value = lat;
+  document.getElementById('lm-lng').value = lng;
+  document.getElementById('lm-coords').textContent = `📍 ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  const latlng = [lat, lng];
+  const r = parseInt(document.getElementById('lm-radius').value) || 200;
+  if (locMarker) locMarker.setLatLng(latlng);
+  else locMarker = L.marker(latlng, { draggable: true }).addTo(locMap)
+    .on('dragend', e => placePin(e.target.getLatLng().lat, e.target.getLatLng().lng, true));
+  if (locCircle) locCircle.setLatLng(latlng).setRadius(r);
+  else locCircle = L.circle(latlng, { radius: r, color: '#2563eb', fillColor: '#2563eb', fillOpacity: 0.15, weight: 2 }).addTo(locMap);
+  if (reverseGeocode) {
+    fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.display_name) {
+          document.getElementById('lm-address').value = d.display_name;
+          document.getElementById('lm-search').value  = d.display_name;
+        }
+      }).catch(() => {});
+  }
+}
+
+function updateRadiusCircle() {
+  const r = parseInt(document.getElementById('lm-radius').value) || 200;
+  if (locCircle) locCircle.setRadius(r);
+}
+
+function onMapSearch(q) {
+  clearTimeout(searchTimer);
+  const box = document.getElementById('map-search-results');
+  if (q.length < 3) { box.style.display = 'none'; return; }
+  searchTimer = setTimeout(async () => {
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5`);
+      const results = await res.json();
+      if (!results.length) { box.style.display = 'none'; return; }
+      box.innerHTML = results.map((r, i) =>
+        `<div class="msr-item" onclick="selectSearchResult(${i})" data-lat="${r.lat}" data-lon="${r.lon}" data-name="${encodeURIComponent(r.display_name)}">${r.display_name}</div>`
+      ).join('');
+      box.style.display = 'block';
+    } catch {}
+  }, 400);
+}
+
+function selectSearchResult(i) {
+  const item = document.querySelectorAll('.msr-item')[i];
+  const lat = parseFloat(item.dataset.lat);
+  const lon = parseFloat(item.dataset.lon);
+  const name = decodeURIComponent(item.dataset.name);
+  document.getElementById('lm-search').value  = name;
+  document.getElementById('lm-address').value = name;
+  document.getElementById('map-search-results').style.display = 'none';
+  locMap.setView([lat, lon], 16);
+  placePin(lat, lon, false);
+}
+
 function openLocationModal(l = null) {
   locId = l?.id || null;
   document.getElementById('loc-modal-title').textContent = l ? 'Edit Location' : 'Add Location';
   document.getElementById('lm-save-btn').textContent = l ? 'Save Changes' : 'Add Location';
-  document.getElementById('lm-name').value    = l?.name || '';
+  document.getElementById('lm-name').value   = l?.name || '';
+  document.getElementById('lm-search').value = l?.address || '';
   document.getElementById('lm-address').value = l?.address || '';
-  document.getElementById('lm-lat').value     = l?.lat || '';
-  document.getElementById('lm-lng').value     = l?.lng || '';
-  document.getElementById('lm-radius').value  = l?.radius_meters || 200;
+  document.getElementById('lm-lat').value    = l?.lat || '';
+  document.getElementById('lm-lng').value    = l?.lng || '';
+  document.getElementById('lm-radius').value = l?.radius_meters || 200;
   document.getElementById('lm-active-wrap').style.display = l ? '' : 'none';
+  document.getElementById('lm-coords').textContent = l ? `📍 ${Number(l.lat).toFixed(6)}, ${Number(l.lng).toFixed(6)}` : '';
   if (l) document.getElementById('lm-active').value = String(l.active);
   document.getElementById('lm-err').style.display = 'none';
-  document.getElementById('lm-gps-status').textContent = '';
+  document.getElementById('map-search-results').style.display = 'none';
   openModal('location-modal');
+  initLocMap(l?.lat ? Number(l.lat) : null, l?.lng ? Number(l.lng) : null);
 }
 
 function useMyGPS() {
-  const status = document.getElementById('lm-gps-status');
-  status.textContent = 'Getting location…';
   navigator.geolocation.getCurrentPosition(
     pos => {
-      document.getElementById('lm-lat').value = pos.coords.latitude.toFixed(6);
-      document.getElementById('lm-lng').value = pos.coords.longitude.toFixed(6);
-      status.textContent = `Location set (accuracy ±${Math.round(pos.coords.accuracy)}m)`;
+      const { latitude: lat, longitude: lng } = pos.coords;
+      locMap.setView([lat, lng], 16);
+      placePin(lat, lng, true);
     },
-    err => { status.textContent = 'Could not get location: ' + err.message; },
+    err => showErr(document.getElementById('lm-err'), 'Could not get location: ' + err.message),
     { enableHighAccuracy: true, timeout: 10000 }
   );
 }
