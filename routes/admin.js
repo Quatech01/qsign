@@ -122,7 +122,10 @@ router.delete('/attendance/:id', async (req, res) => {
 router.get('/workers', async (_req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT id,name,email,role,department,phone,active,created_at FROM users ORDER BY name"
+      `SELECT u.id, u.name, u.email, u.role, u.department, u.phone, u.active, u.created_at,
+              u.location_id, wl.name AS location_name
+       FROM users u LEFT JOIN work_locations wl ON wl.id = u.location_id
+       ORDER BY u.name`
     );
     res.json(rows);
   } catch (err) { res.status(500).json({ error: 'Server error' }); }
@@ -130,16 +133,16 @@ router.get('/workers', async (_req, res) => {
 
 // POST /api/admin/workers
 router.post('/workers', async (req, res) => {
-  const { name, email, password, role = 'worker', department, phone } = req.body || {};
+  const { name, email, password, role = 'worker', department, phone, location_id } = req.body || {};
   if (!name || !email || !password) return res.status(400).json({ error: 'name, email, password required' });
   if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
   if (!['worker','admin'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
   try {
     const hash = await bcrypt.hash(password, 12);
     const { rows: [u] } = await pool.query(
-      `INSERT INTO users (name,email,password_hash,role,department,phone)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING id,name,email,role,department,phone,active,created_at`,
-      [name.trim(), email.toLowerCase().trim(), hash, role, department || null, phone || null]
+      `INSERT INTO users (name,email,password_hash,role,department,phone,location_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id,name,email,role,department,phone,active,location_id,created_at`,
+      [name.trim(), email.toLowerCase().trim(), hash, role, department || null, phone || null, location_id || null]
     );
     res.status(201).json(u);
   } catch (err) {
@@ -150,7 +153,7 @@ router.post('/workers', async (req, res) => {
 
 // PUT /api/admin/workers/:id
 router.put('/workers/:id', async (req, res) => {
-  const { name, email, department, phone, active, password } = req.body || {};
+  const { name, email, department, phone, active, password, location_id } = req.body || {};
   try {
     let hash = null;
     if (password) {
@@ -159,14 +162,15 @@ router.put('/workers/:id', async (req, res) => {
     }
     const { rows: [u] } = await pool.query(
       `UPDATE users SET
-         name       = COALESCE($1, name),
-         email      = COALESCE($2, email),
-         department = COALESCE($3, department),
-         phone      = COALESCE($4, phone),
-         active     = COALESCE($5, active),
-         password_hash = COALESCE($6, password_hash)
-       WHERE id=$7 RETURNING id,name,email,role,department,phone,active`,
-      [name||null, email||null, department||null, phone||null, active??null, hash, req.params.id]
+         name          = COALESCE($1, name),
+         email         = COALESCE($2, email),
+         department    = COALESCE($3, department),
+         phone         = COALESCE($4, phone),
+         active        = COALESCE($5, active),
+         password_hash = COALESCE($6, password_hash),
+         location_id   = $7
+       WHERE id=$8 RETURNING id,name,email,role,department,phone,active,location_id`,
+      [name||null, email||null, department||null, phone||null, active??null, hash, location_id||null, req.params.id]
     );
     if (!u) return res.status(404).json({ error: 'Worker not found' });
     res.json(u);
