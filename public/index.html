@@ -562,6 +562,10 @@ function fmtHours(h) {
 }
 
 boot();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+}
 </script>
 </body>
 </html>

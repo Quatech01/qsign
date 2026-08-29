@@ -60,7 +60,7 @@ app.use((err, _req, res, _next) => {
 
 const PORT = process.env.PORT || 3000;
 if (require.main === module) {
-  app.listen(PORT, () => console.log(`WorkTrack on http://localhost:${PORT}`));
+  app.listen(PORT, () => console.log(`Qsign on http://localhost:${PORT}`));
 }
 
 module.exports = app;
