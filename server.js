@@ -72,7 +72,9 @@ app.use((err, _req, res, _next) => {
 
 const PORT = process.env.PORT || 3000;
 if (require.main === module) {
-  app.listen(PORT, () => console.log(`Qsign on http://localhost:${PORT}`));
+  require('./lib/migrate')().then(() => {
+    app.listen(PORT, () => console.log(`Qsign on http://localhost:${PORT}`));
+  }).catch(err => { console.error('Startup migration failed:', err); process.exit(1); });
 }
 
 module.exports = app;
