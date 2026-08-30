@@ -23,26 +23,38 @@ app.use('/api/auth',       require('./routes/auth'));
 app.use('/api/attendance', require('./routes/attendance'));
 app.use('/api/admin',      require('./routes/admin'));
 
-// One-time first-admin setup (blocked once any admin exists)
-app.post('/api/setup', async (req, res) => {
-  const { name, email, password, setup_key } = req.body || {};
+// Register a new company + admin account
+app.post('/api/companies/register', async (req, res) => {
+  const { company_name, company_code, admin_name, admin_email, password, setup_key } = req.body || {};
   if (setup_key !== process.env.SETUP_KEY)
     return res.status(403).json({ error: 'Invalid setup key' });
-  if (!name || !email || !password || password.length < 6)
-    return res.status(400).json({ error: 'name, email, password (min 6 chars) required' });
+  if (!company_name || !company_code || !admin_name || !admin_email || !password)
+    return res.status(400).json({ error: 'All fields required' });
+  if (password.length < 6)
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+
+  const code = company_code.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (code.length < 3) return res.status(400).json({ error: 'Company code must be at least 3 characters (letters/numbers only)' });
+
   try {
-    const { rows: [existing] } = await pool.query("SELECT id FROM users WHERE role='admin' LIMIT 1");
-    if (existing) return res.status(409).json({ error: 'Admin already exists — log in via /admin' });
+    const { rows: [company] } = await pool.query(
+      "INSERT INTO companies (name, company_code) VALUES ($1, $2) RETURNING *",
+      [company_name.trim(), code]
+    );
     const hash = await bcrypt.hash(password, 12);
     const { rows: [u] } = await pool.query(
-      "INSERT INTO users (name,email,password_hash,role) VALUES ($1,$2,$3,'admin') RETURNING id,name,email,role",
-      [name.trim(), email.toLowerCase().trim(), hash]
+      "INSERT INTO users (name,email,password_hash,role,company_id) VALUES ($1,$2,$3,'admin',$4) RETURNING id,name,email,role",
+      [admin_name.trim(), admin_email.toLowerCase().trim(), hash, company.id]
     );
-    const token = generateToken({ sub: u.id, role: u.role, name: u.name });
-    res.status(201).json({ message: 'Admin account created', token, user: u });
+    const token = generateToken({ sub: u.id, role: u.role, name: u.name, company_id: company.id });
+    res.status(201).json({
+      message: 'Company registered',
+      company: { name: company.name, company_code: company.company_code },
+      token, user: u,
+    });
   } catch (err) {
-    if (err.code === '23505') return res.status(409).json({ error: 'Email already in use' });
-    res.status(500).json({ error: 'Setup failed' });
+    if (err.code === '23505') return res.status(409).json({ error: 'Company code or email already in use' });
+    res.status(500).json({ error: 'Registration failed' });
   }
 });
 

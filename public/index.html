@@ -148,8 +148,12 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
     <div class="login-form">
       <div class="err-box" id="login-err"></div>
       <div class="field">
-        <label>Email</label>
-        <input type="email" id="login-email" placeholder="you@company.com" autocomplete="email" inputmode="email">
+        <label>Company Code</label>
+        <input type="text" id="login-code" placeholder="e.g. UNILIV" autocomplete="organization" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+      </div>
+      <div class="field">
+        <label>Email or Staff ID</label>
+        <input type="text" id="login-email" placeholder="EMP001 or you@company.com" autocomplete="username" inputmode="email">
       </div>
       <div class="field">
         <label>Password</label>
@@ -292,15 +296,16 @@ function showApp() {
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 async function doLogin() {
-  const email    = document.getElementById('login-email').value.trim();
-  const password = document.getElementById('login-pass').value;
-  const errEl    = document.getElementById('login-err');
+  const company_code = document.getElementById('login-code').value.trim();
+  const identifier   = document.getElementById('login-email').value.trim();
+  const password     = document.getElementById('login-pass').value;
+  const errEl        = document.getElementById('login-err');
   errEl.style.display = 'none';
-  if (!email || !password) { showErr(errEl, 'Enter email and password'); return; }
+  if (!company_code || !identifier || !password) { showErr(errEl, 'Enter company code, email/staff ID, and password'); return; }
 
   setLoading(true);
   try {
-    const r = await api('POST', '/api/auth/login', { email, password }, false);
+    const r = await api('POST', '/api/auth/login', { company_code, email: identifier, password }, false);
     TOKEN = r.token;
     USER  = r.user;
     localStorage.setItem('qs_token', TOKEN);
