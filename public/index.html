@@ -276,9 +276,18 @@ let tickTimer  = null;
 let gpsTimer   = null;
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
-function boot() {
+async function boot() {
   if (TOKEN && USER) {
-    showApp();
+    try {
+      await api('GET', '/api/auth/me');
+      showApp();
+    } catch {
+      // Stale token — clear and show login
+      TOKEN = null; USER = null;
+      localStorage.removeItem('qs_token');
+      localStorage.removeItem('qs_user');
+      showScreen('login');
+    }
   } else {
     showScreen('login');
   }

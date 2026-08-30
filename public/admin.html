@@ -567,16 +567,21 @@ const TITLES = {
 // ── Boot ──────────────────────────────────────────────────────────────────────
 async function boot() {
   if (TOKEN && USER?.role === 'admin') {
-    document.getElementById('login-overlay').style.display = 'none';
-    document.getElementById('sb-user-name').textContent = USER.name;
     try {
       const company = await api('GET', '/api/admin/company');
+      document.getElementById('login-overlay').style.display = 'none';
+      document.getElementById('sb-user-name').textContent = USER.name;
       document.getElementById('sb-company-code').textContent = 'Code: ' + company.company_code;
-    } catch {}
-    loadDashboard();
-    loadWorkerList();
-    setLivePolling();
-    setDefaultDates();
+      loadDashboard();
+      loadWorkerList();
+      setLivePolling();
+      setDefaultDates();
+    } catch (e) {
+      // Token is stale (no company_id) — clear it and show login
+      TOKEN = null; USER = null;
+      localStorage.removeItem('qs_token');
+      localStorage.removeItem('qs_user');
+    }
   }
 }
 
