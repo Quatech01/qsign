@@ -311,7 +311,7 @@ tr:hover td{background:var(--faint)}
       </div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>Name</th><th>Staff ID</th><th>Email</th><th>Department</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Name</th><th>Staff ID</th><th>Email</th><th>Department</th><th>This Week</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody id="workers-tbody"></tbody>
         </table>
       </div>
@@ -446,7 +446,10 @@ tr:hover td{background:var(--faint)}
           <label>Phone</label>
           <input type="tel" id="wm-phone" placeholder="+44 7xxx xxxxxx">
         </div>
-        <div class="field"></div>
+        <div class="field">
+          <label>Weekly Hours Target</label>
+          <input type="number" id="wm-weekly-hours" placeholder="e.g. 40" min="0" max="168" step="0.5">
+        </div>
       </div>
       <div class="field-row">
         <div class="field">
@@ -805,15 +808,32 @@ async function loadWorkers() {
   await loadWorkerList();
   const tbody = document.getElementById('workers-tbody');
   tbody.innerHTML = workers.length
-    ? workers.map(w => `<tr>
-        <td><strong>${w.name}</strong></td>
-        <td><span style="font-family:monospace;font-size:.8rem;background:var(--blue-lt);color:var(--blue);padding:.1rem .4rem;border-radius:4px">${w.staff_id || '—'}</span></td>
-        <td>${w.email}</td>
-        <td>${w.department || '—'}</td>
-        <td>${w.active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-red">Deactivated</span>'}</td>
-        <td><button class="btn-sm btn-outline" onclick="openWorkerModal(${JSON.stringify(w).replace(/"/g,'&quot;')})">Edit</button></td>
-      </tr>`).join('')
-    : '<tr class="empty-row"><td colspan="7">No workers yet</td></tr>';
+    ? workers.map(w => {
+        const target  = parseFloat(w.weekly_hours) || 0;
+        const worked  = parseFloat(w.week_hours_worked) || 0;
+        let weekCell;
+        if (!target) {
+          weekCell = `<span style="font-size:.78rem;color:var(--muted)">—</span>`;
+        } else {
+          const pct = worked / target;
+          const color = pct >= 1 ? '#16a34a' : pct >= 0.5 ? '#ca8a04' : '#dc2626';
+          const bg    = pct >= 1 ? '#f0fdf4'  : pct >= 0.5 ? '#fefce8'  : '#fef2f2';
+          const label = pct >= 1 ? '&#10003; Complete' : `${worked.toFixed(1)} / ${target}h`;
+          weekCell = `<span style="display:inline-flex;align-items:center;gap:.35rem;font-size:.78rem;font-weight:600;color:${color};background:${bg};border:1px solid ${color}33;padding:.2rem .55rem;border-radius:6px">
+            <span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></span>${label}
+          </span>`;
+        }
+        return `<tr>
+          <td><strong>${w.name}</strong></td>
+          <td><span style="font-family:monospace;font-size:.8rem;background:var(--blue-lt);color:var(--blue);padding:.1rem .4rem;border-radius:4px">${w.staff_id || '—'}</span></td>
+          <td>${w.email}</td>
+          <td>${w.department || '—'}</td>
+          <td>${weekCell}</td>
+          <td>${w.active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-red">Deactivated</span>'}</td>
+          <td><button class="btn-sm btn-outline" onclick="openWorkerModal(${JSON.stringify(w).replace(/"/g,'&quot;')})">Edit</button></td>
+        </tr>`;
+      }).join('')
+    : '<tr class="empty-row"><td colspan="8">No workers yet</td></tr>';
 }
 
 // ── Worker modal — location tab ───────────────────────────────────────────────
@@ -903,11 +923,12 @@ async function openWorkerModal(w = null) {
   wmLocTab = 'existing';
   document.getElementById('worker-modal-title').textContent = w ? 'Edit Worker' : 'Add Worker';
   document.getElementById('wm-save-btn').textContent = w ? 'Save Changes' : 'Add Worker';
-  document.getElementById('wm-name').value     = w?.name || '';
-  document.getElementById('wm-staff-id').value = w?.staff_id || '';
-  document.getElementById('wm-email').value    = w?.email || '';
-  document.getElementById('wm-dept').value     = w?.department || '';
-  document.getElementById('wm-phone').value    = w?.phone || '';
+  document.getElementById('wm-name').value         = w?.name || '';
+  document.getElementById('wm-staff-id').value     = w?.staff_id || '';
+  document.getElementById('wm-email').value        = w?.email || '';
+  document.getElementById('wm-dept').value         = w?.department || '';
+  document.getElementById('wm-phone').value        = w?.phone || '';
+  document.getElementById('wm-weekly-hours').value = w?.weekly_hours || '';
   document.getElementById('wm-role').value     = w?.role || 'worker';
   document.getElementById('wm-pass').value     = '';
   document.getElementById('wm-pass').placeholder = w ? 'Leave blank to keep current' : 'Min 6 characters';
@@ -970,7 +991,8 @@ async function saveWorker() {
   }
 
   try {
-    const body = { name, email, staff_id, department: dept||null, phone: phone||null, role, location_id, ...(password && {password}), ...(workerId && {active}) };
+    const weeklyHours = parseFloat(document.getElementById('wm-weekly-hours').value) || null;
+  const body = { name, email, staff_id, department: dept||null, phone: phone||null, role, location_id, weekly_hours: weeklyHours, ...(password && {password}), ...(workerId && {active}) };
     if (workerId) await api('PUT', `/api/admin/workers/${workerId}`, body);
     else          await api('POST', '/api/admin/workers', body);
     closeModal('worker-modal');

@@ -176,9 +176,26 @@ router.get('/workers', async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT u.id, u.name, u.email, u.role, u.department, u.phone, u.active, u.created_at,
-              u.staff_id, u.location_id, wl.name AS location_name
-       FROM users u LEFT JOIN work_locations wl ON wl.id = u.location_id
+              u.staff_id, u.location_id, u.weekly_hours, wl.name AS location_name,
+              COALESCE(
+                SUM(
+                  CASE
+                    WHEN a.check_out_time IS NOT NULL THEN a.hours_worked
+                    WHEN a.check_in_time >= date_trunc('week', NOW()) THEN
+                      EXTRACT(EPOCH FROM (NOW() - a.check_in_time)) / 3600
+                    ELSE 0
+                  END
+                ), 0
+              )::numeric(6,2) AS week_hours_worked
+       FROM users u
+       LEFT JOIN work_locations wl ON wl.id = u.location_id
+       LEFT JOIN attendance a
+         ON a.user_id = u.id
+         AND a.check_in_time >= date_trunc('week', NOW())
+         AND a.check_in_time <  date_trunc('week', NOW()) + interval '7 days'
        WHERE u.company_id = $1
+       GROUP BY u.id, u.name, u.email, u.role, u.department, u.phone, u.active,
+                u.created_at, u.staff_id, u.location_id, u.weekly_hours, wl.name
        ORDER BY u.name`,
       [cid]
     );
@@ -189,18 +206,19 @@ router.get('/workers', async (req, res) => {
 // POST /api/admin/workers
 router.post('/workers', async (req, res) => {
   const cid = req.user.company_id;
-  const { name, email, password, role = 'worker', department, phone, location_id, staff_id } = req.body || {};
+  const { name, email, password, role = 'worker', department, phone, location_id, staff_id, weekly_hours } = req.body || {};
   if (!name || !email || !password) return res.status(400).json({ error: 'name, email, password required' });
   if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
   if (!['worker', 'admin'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
   try {
     const hash = await bcrypt.hash(password, 12);
     const { rows: [u] } = await pool.query(
-      `INSERT INTO users (name,email,password_hash,role,department,phone,location_id,company_id,staff_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-       RETURNING id,name,email,role,department,phone,active,location_id,staff_id,created_at`,
+      `INSERT INTO users (name,email,password_hash,role,department,phone,location_id,company_id,staff_id,weekly_hours)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       RETURNING id,name,email,role,department,phone,active,location_id,staff_id,weekly_hours,created_at`,
       [name.trim(), email.toLowerCase().trim(), hash, role,
-       department || null, phone || null, location_id || null, cid, staff_id || null]
+       department || null, phone || null, location_id || null, cid, staff_id || null,
+       weekly_hours ? parseFloat(weekly_hours) : null]
     );
     res.status(201).json(u);
   } catch (err) {
@@ -215,7 +233,7 @@ router.post('/workers', async (req, res) => {
 // PUT /api/admin/workers/:id
 router.put('/workers/:id', async (req, res) => {
   const cid = req.user.company_id;
-  const { name, email, department, phone, active, password, location_id, staff_id } = req.body || {};
+  const { name, email, department, phone, active, password, location_id, staff_id, weekly_hours } = req.body || {};
   try {
     let hash = null;
     if (password) {
@@ -231,11 +249,14 @@ router.put('/workers/:id', async (req, res) => {
          active        = COALESCE($5, active),
          password_hash = COALESCE($6, password_hash),
          location_id   = $7,
-         staff_id      = $8
-       WHERE id=$9 AND company_id=$10
-       RETURNING id,name,email,role,department,phone,active,location_id,staff_id`,
+         staff_id      = $8,
+         weekly_hours  = COALESCE($9, weekly_hours)
+       WHERE id=$10 AND company_id=$11
+       RETURNING id,name,email,role,department,phone,active,location_id,staff_id,weekly_hours`,
       [name || null, email || null, department || null, phone || null,
-       active ?? null, hash, location_id || null, staff_id || null, req.params.id, cid]
+       active ?? null, hash, location_id || null, staff_id || null,
+       weekly_hours != null ? parseFloat(weekly_hours) : null,
+       req.params.id, cid]
     );
     if (!u) return res.status(404).json({ error: 'Worker not found' });
     res.json(u);
