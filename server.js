@@ -58,6 +58,45 @@ app.post('/api/companies/register', async (req, res) => {
   }
 });
 
+// List all companies (setup_key protected — for account recovery)
+app.post('/api/companies/list', async (req, res) => {
+  const { setup_key } = req.body || {};
+  if (setup_key !== process.env.SETUP_KEY)
+    return res.status(403).json({ error: 'Invalid setup key' });
+  try {
+    const { rows } = await pool.query(
+      `SELECT c.id, c.name, c.company_code, c.created_at,
+              u.email AS admin_email, u.name AS admin_name
+       FROM companies c
+       LEFT JOIN users u ON u.company_id = c.id AND u.role = 'admin'
+       ORDER BY c.created_at DESC`
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: 'Server error' }); }
+});
+
+// Reset admin password (setup_key protected)
+app.post('/api/admin-reset', async (req, res) => {
+  const { setup_key, company_code, new_password } = req.body || {};
+  if (setup_key !== process.env.SETUP_KEY)
+    return res.status(403).json({ error: 'Invalid setup key' });
+  if (!company_code || !new_password || new_password.length < 6)
+    return res.status(400).json({ error: 'company_code and new_password (min 6 chars) required' });
+  try {
+    const { rows: [company] } = await pool.query(
+      "SELECT id FROM companies WHERE UPPER(company_code) = UPPER($1)", [company_code]
+    );
+    if (!company) return res.status(404).json({ error: 'Company not found' });
+    const hash = await bcrypt.hash(new_password, 12);
+    const { rows } = await pool.query(
+      "UPDATE users SET password_hash=$1 WHERE company_id=$2 AND role='admin' RETURNING name, email",
+      [hash, company.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'No admin found for this company' });
+    res.json({ message: 'Password reset', admins: rows.map(u => ({ name: u.name, email: u.email })) });
+  } catch (err) { res.status(500).json({ error: 'Reset failed' }); }
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('*', (req, res) => {
