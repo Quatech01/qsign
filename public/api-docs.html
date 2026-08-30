@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qsign API Reference</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg:          #0d1117;
+    --surface:     #161b22;
+    --raised:      #21262d;
+    --border:      #30363d;
+    --text:        #e6edf3;
+    --muted:       #7d8590;
+    --accent:      #3fb950;
+    --accent-dim:  rgba(63,185,80,.12);
+    --get:         #58a6ff;
+    --get-bg:      rgba(88,166,255,.1);
+    --post:        #3fb950;
+    --post-bg:     rgba(63,185,80,.1);
+    --put:         #d29922;
+    --put-bg:      rgba(210,153,34,.1);
+    --del:         #ff7b72;
+    --del-bg:      rgba(255,123,114,.1);
+    --setup:       #bc8cff;
+    --setup-bg:    rgba(188,140,255,.1);
+    --auth-admin:  #f0883e;
+    --auth-worker: #58a6ff;
+    --sidebar-w:   260px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg:         #f6f8fa;
+      --surface:    #ffffff;
+      --raised:     #f0f2f4;
+      --border:     #d0d7de;
+      --text:       #1f2328;
+      --muted:      #57606a;
+      --accent-dim: rgba(26,127,55,.08);
+      --get-bg:     rgba(9,105,218,.07);
+      --post-bg:    rgba(26,127,55,.07);
+      --put-bg:     rgba(154,103,0,.07);
+      --del-bg:     rgba(209,36,47,.07);
+      --setup-bg:   rgba(130,80,223,.07);
+    }
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+  .shell { display: flex; min-height: 100vh; }
+
+  .sidebar {
+    width: var(--sidebar-w);
+    min-width: var(--sidebar-w);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+    flex-shrink: 0;
+  }
+  .sidebar-logo { padding: 20px 20px 16px; border-bottom: 1px solid var(--border); }
+  .sidebar-logo .wordmark { font-size: 18px; font-weight: 700; color: var(--accent); letter-spacing: -.3px; font-family: 'JetBrains Mono', monospace; }
+  .sidebar-logo .sub { font-size: 11px; color: var(--muted); margin-top: 2px; letter-spacing: .5px; text-transform: uppercase; }
+  .nav-group { padding: 16px 12px 4px; }
+  .nav-label { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; padding: 0 8px; margin-bottom: 4px; }
+  .nav-link { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; color: var(--muted); text-decoration: none; font-size: 13px; transition: background .12s, color .12s; }
+  .nav-link:hover { background: var(--raised); color: var(--text); }
+  .nav-link .badge { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500; padding: 1px 5px; border-radius: 3px; line-height: 1.5; }
+  .badge-get   { background: var(--get-bg);   color: var(--get); }
+  .badge-post  { background: var(--post-bg);  color: var(--post); }
+  .badge-put   { background: var(--put-bg);   color: var(--put); }
+  .badge-del   { background: var(--del-bg);   color: var(--del); }
+  .badge-setup { background: var(--setup-bg); color: var(--setup); }
+
+  .main { flex: 1; padding: 40px 48px; max-width: 860px; }
+  .page-title { font-size: 28px; font-weight: 700; color: var(--text); letter-spacing: -.5px; }
+  .page-meta { color: var(--muted); margin-top: 6px; font-size: 13.5px; }
+  .page-meta code { font-family: 'JetBrains Mono', monospace; font-size: 12px; background: var(--raised); border: 1px solid var(--border); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+  .global-info { margin-top: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; display: flex; flex-wrap: wrap; gap: 20px; }
+  .info-item { display: flex; flex-direction: column; gap: 3px; }
+  .info-key { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
+  .info-val { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: var(--text); }
+
+  .section { margin-top: 48px; scroll-margin-top: 24px; }
+  .section-heading { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.2px; color: var(--accent); margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+
+  .ep { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 16px; overflow: hidden; scroll-margin-top: 24px; }
+  .ep-head { display: flex; align-items: center; gap: 12px; padding: 14px 18px; cursor: pointer; user-select: none; }
+  .ep-head:hover { background: var(--raised); }
+  .method { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 500; padding: 3px 8px; border-radius: 4px; min-width: 50px; text-align: center; flex-shrink: 0; }
+  .m-get    { background: var(--get-bg);   color: var(--get); }
+  .m-post   { background: var(--post-bg);  color: var(--post); }
+  .m-put    { background: var(--put-bg);   color: var(--put); }
+  .m-delete { background: var(--del-bg);   color: var(--del); }
+  .m-setup  { background: var(--setup-bg); color: var(--setup); }
+  .ep-path { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text); flex: 1; }
+  .ep-path .param { color: var(--put); }
+  .auth-chip { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; white-space: nowrap; flex-shrink: 0; }
+  .auth-admin  { background: rgba(240,136,62,.12); color: var(--auth-admin); }
+  .auth-worker { background: rgba(88,166,255,.12);  color: var(--auth-worker); }
+  .auth-any    { background: var(--raised); color: var(--muted); border: 1px solid var(--border); }
+  .auth-setup  { background: var(--setup-bg); color: var(--setup); }
+  .ep-toggle { color: var(--muted); font-size: 12px; transition: transform .2s; flex-shrink: 0; }
+  .ep.open .ep-toggle { transform: rotate(180deg); }
+  .ep-body { display: none; border-top: 1px solid var(--border); padding: 0; }
+  .ep.open .ep-body { display: block; }
+  .ep-desc { padding: 12px 18px; color: var(--muted); font-size: 13px; background: var(--bg); border-bottom: 1px solid var(--border); }
+  .pane-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  .pane { padding: 16px 18px; }
+  .pane:first-child { border-right: 1px solid var(--border); }
+  .pane-full { padding: 16px 18px; }
+  .pane-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 10px; }
+  pre { font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.7; overflow-x: auto; white-space: pre; color: var(--text); }
+  .k { color: var(--muted); }
+  .s { color: #79c0ff; }
+  .n { color: var(--get); }
+  .b { color: var(--accent); }
+  .r { color: var(--del); }
+  .ep-note { padding: 10px 18px; font-size: 12px; color: var(--put); background: var(--put-bg); border-top: 1px solid var(--border); }
+
+  .print-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 16px; padding: 7px 14px;
+    background: var(--accent-dim); border: 1px solid var(--accent);
+    border-radius: 6px; color: var(--accent); font-size: 13px;
+    font-family: 'Inter', sans-serif; cursor: pointer; font-weight: 500;
+  }
+  .print-btn:hover { background: var(--accent); color: #000; }
+
+  @media (max-width: 700px) {
+    .sidebar { display: none; }
+    .main { padding: 24px 20px; }
+    .pane-row { grid-template-columns: 1fr; }
+    .pane:first-child { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+
+  @media print {
+    @page { margin: 18mm 15mm; size: A4; }
+    :root {
+      --bg: #fff; --surface: #fff; --raised: #f4f6f8;
+      --border: #d0d7de; --text: #1f2328; --muted: #57606a;
+      --accent: #1a7f37; --get: #0969da; --get-bg: #ddf4ff;
+      --post: #1a7f37; --post-bg: #dafbe1; --put: #7d4e00; --put-bg: #fff8c5;
+      --del: #cf222e; --del-bg: #ffebe9; --setup: #6639ba; --setup-bg: #fbefff;
+      --auth-admin: #953800; --auth-worker: #0969da;
+    }
+    body { font-size: 11px; background: #fff; color: #1f2328; }
+    .sidebar, .print-btn { display: none !important; }
+    .shell { display: block; }
+    .main { padding: 0; max-width: 100%; }
+    .page-title { font-size: 20px; }
+    .global-info { flex-wrap: wrap; gap: 12px; padding: 10px 14px; }
+    .ep-body { display: block !important; }
+    .ep-toggle { display: none; }
+    .ep-head { cursor: default; background: none !important; padding: 10px 14px; }
+    .pane-row { grid-template-columns: 1fr; }
+    .pane:first-child { border-right: none; border-bottom: 1px solid var(--border); }
+    pre { font-size: 10px; white-space: pre-wrap; word-break: break-word; }
+    .ep { page-break-inside: avoid; border: 1px solid var(--border); margin-bottom: 10px; border-radius: 6px; }
+    .section { page-break-before: auto; margin-top: 28px; }
+    .section-heading { page-break-after: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <div class="wordmark">Qsign</div>
+      <div class="sub">API Reference v1</div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-label">Auth</div>
+      <a class="nav-link" href="#auth-login"><span class="badge badge-post">POST</span>Login</a>
+      <a class="nav-link" href="#auth-me"><span class="badge badge-get">GET</span>Verify token</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-label">Attendance</div>
+      <a class="nav-link" href="#att-checkin"><span class="badge badge-post">POST</span>Check in</a>
+      <a class="nav-link" href="#att-checkout"><span class="badge badge-post">POST</span>Check out</a>
+      <a class="nav-link" href="#att-status"><span class="badge badge-get">GET</span>Status</a>
+      <a class="nav-link" href="#att-today"><span class="badge badge-get">GET</span>Today</a>
+      <a class="nav-link" href="#att-history"><span class="badge badge-get">GET</span>History</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-label">Admin — Dashboard</div>
+      <a class="nav-link" href="#adm-dashboard"><span class="badge badge-get">GET</span>Summary</a>
+      <a class="nav-link" href="#adm-live"><span class="badge badge-get">GET</span>Live workers</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-label">Admin — Workers</div>
+      <a class="nav-link" href="#adm-workers-list"><span class="badge badge-get">GET</span>List workers</a>
+      <a class="nav-link" href="#adm-workers-create"><span class="badge badge-post">POST</span>Create worker</a>
+      <a class="nav-link" href="#adm-workers-update"><span class="badge badge-put">PUT</span>Update worker</a>
+      <a class="nav-link" href="#adm-workers-delete"><span class="badge badge-del">DEL</span>Delete worker</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-label">Admin — Locations</div>
+      <a class="nav-link" href="#adm-loc-list"><span class="badge badge-get">GET</span>List locations</a>
+      <a class="nav-link" href="#adm-loc-create"><span class="badge badge-post">POST</span>Create location</a>
+      <a class="nav-link" href="#adm-loc-update"><span class="badge badge-put">PUT</span>Update location</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-label">Admin — Records</div>
+      <a class="nav-link" href="#adm-att-list"><span class="badge badge-get">GET</span>All records</a>
+      <a class="nav-link" href="#adm-att-edit"><span class="badge badge-put">PUT</span>Edit record</a>
+      <a class="nav-link" href="#adm-att-delete"><span class="badge badge-del">DEL</span>Delete record</a>
+      <a class="nav-link" href="#adm-att-report"><span class="badge badge-get">GET</span>Reports</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-label">Admin — Company</div>
+      <a class="nav-link" href="#adm-company-get"><span class="badge badge-get">GET</span>Company settings</a>
+      <a class="nav-link" href="#adm-company-put"><span class="badge badge-put">PUT</span>Update settings</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-label">Setup</div>
+      <a class="nav-link" href="#setup-register"><span class="badge badge-setup">POST</span>Register company</a>
+      <a class="nav-link" href="#setup-list"><span class="badge badge-setup">POST</span>List companies</a>
+      <a class="nav-link" href="#setup-reset"><span class="badge badge-setup">POST</span>Reset admin</a>
+      <a class="nav-link" href="#health"><span class="badge badge-get">GET</span>Health</a>
+    </div>
+  </nav>
+
+  <main class="main">
+    <h1 class="page-title">Qsign API Reference</h1>
+    <p class="page-meta">
+      Multi-tenant GPS attendance API. All endpoints are prefixed with <code>/api</code>.
+      Protected routes require a JWT via <code>Authorization: Bearer &lt;token&gt;</code>.
+    </p>
+
+    <button class="print-btn" onclick="printPDF()">&#8595; Save as PDF</button>
+
+    <div class="global-info">
+      <div class="info-item"><span class="info-key">Base URL</span><span class="info-val">https://qsign.uk/api</span></div>
+      <div class="info-item"><span class="info-key">Auth header</span><span class="info-val">Authorization: Bearer &lt;token&gt;</span></div>
+      <div class="info-item"><span class="info-key">Content-Type</span><span class="info-val">application/json</span></div>
+      <div class="info-item"><span class="info-key">Token lifetime</span><span class="info-val">8 hours (JWT, HS256)</span></div>
+    </div>
+
+    <!-- AUTH -->
+    <div class="section" id="section-auth">
+      <div class="section-heading">Authentication</div>
+
+      <div class="ep" id="auth-login">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-post">POST</span><span class="ep-path">/auth/login</span>
+          <span class="auth-chip auth-any">Public</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">Authenticate a worker or admin. Returns a signed JWT and basic user info.</div>
+          <div class="pane-row">
+            <div class="pane">
+              <div class="pane-label">Request body</div>
+              <pre><span class="k">{</span>
+  <span class="s">"company_code"</span><span class="k">:</span> <span class="n">"ACME01"</span><span class="k">,</span>
+  <span class="s">"email"</span><span class="k">:</span>        <span class="n">"alice@acme.com"</span><span class="k">,</span>  <span class="k">// or staff_id</span>
+  <span class="s">"staff_id"</span><span class="k">:</span>     <span class="n">"EMP-42"</span><span class="k">,</span>          <span class="k">// alternative</span>
+  <span class="s">"password"</span><span class="k">:</span>     <span class="n">"••••••••"</span>
+<span class="k">}</span></pre>
+            </div>
+            <div class="pane">
+              <div class="pane-label">Response 200</div>
+              <pre><span class="k">{</span>
+  <span class="s">"token"</span><span class="k">:</span> <span class="n">"eyJhbGci..."</span><span class="k">,</span>
+  <span class="s">"user"</span><span class="k">: {</span>
+    <span class="s">"id"</span><span class="k">:</span>         <span class="b">7</span><span class="k">,</span>
+    <span class="s">"name"</span><span class="k">:</span>       <span class="n">"Alice"</span><span class="k">,</span>
+    <span class="s">"email"</span><span class="k">:</span>      <span class="n">"alice@acme.com"</span><span class="k">,</span>
+    <span class="s">"role"</span><span class="k">:</span>       <span class="n">"worker"</span><span class="k">,</span>
+    <span class="s">"department"</span><span class="k">:</span> <span class="n">"Engineering"</span><span class="k">,</span>
+    <span class="s">"staff_id"</span><span class="k">:</span>   <span class="n">"EMP-42"</span>
+  <span class="k">},</span>
+  <span class="s">"company"</span><span class="k">: {</span>
+    <span class="s">"name"</span><span class="k">:</span>         <span class="n">"Acme Ltd"</span><span class="k">,</span>
+    <span class="s">"company_code"</span><span class="k">:</span> <span class="n">"ACME01"</span>
+  <span class="k">}</span>
+<span class="k">}</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ep" id="auth-me">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-get">GET</span><span class="ep-path">/auth/me</span>
+          <span class="auth-chip auth-any">Any role</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">Verify a token and return the caller's profile. Use on app load to confirm the session is still valid.</div>
+          <div class="pane-row">
+            <div class="pane"><div class="pane-label">Request</div><pre><span class="k">No body. Token required in header.</span></pre></div>
+            <div class="pane">
+              <div class="pane-label">Response 200</div>
+              <pre><span class="k">{</span>
+  <span class="s">"id"</span><span class="k">:</span>         <span class="b">7</span><span class="k">,</span>
+  <span class="s">"name"</span><span class="k">:</span>       <span class="n">"Alice"</span><span class="k">,</span>
+  <span class="s">"email"</span><span class="k">:</span>      <span class="n">"alice@acme.com"</span><span class="k">,</span>
+  <span class="s">"role"</span><span class="k">:</span>       <span class="n">"worker"</span><span class="k">,</span>
+  <span class="s">"department"</span><span class="k">:</span> <span class="n">"Engineering"</span><span class="k">,</span>
+  <span class="s">"phone"</span><span class="k">:</span>      <span class="n">"+44 7700 900123"</span><span class="k">,</span>
+  <span class="s">"staff_id"</span><span class="k">:</span>   <span class="n">"EMP-42"</span>
+<span class="k">}</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ATTENDANCE -->
+    <div class="section" id="section-attendance">
+      <div class="section-heading">Attendance — Worker endpoints</div>
+
+      <div class="ep" id="att-checkin">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-post">POST</span><span class="ep-path">/attendance/checkin</span>
+          <span class="auth-chip auth-worker">Worker</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">Clock in. Validates GPS coordinates against the worker's assigned geofence. Returns 403 if outside radius.</div>
+          <div class="pane-row">
+            <div class="pane">
+              <div class="pane-label">Request body</div>
+              <pre><span class="k">{</span>
+  <span class="s">"lat"</span><span class="k">:</span> <span class="b">51.5074</span><span class="k">,</span>
+  <span class="s">"lng"</span><span class="k">:</span> <span class="b">-0.1278</span>
+<span class="k">}</span></pre>
+            </div>
+            <div class="pane">
+              <div class="pane-label">Response 200</div>
+              <pre><span class="k">{</span>
+  <span class="s">"message"</span><span class="k">:</span>      <span class="n">"Checked in successfully"</span><span class="k">,</span>
+  <span class="s">"locationName"</span><span class="k">:</span> <span class="n">"Head Office, London"</span><span class="k">,</span>
+  <span class="s">"record"</span><span class="k">: {</span>
+    <span class="s">"id"</span><span class="k">:</span>             <span class="b">201</span><span class="k">,</span>
+    <span class="s">"user_id"</span><span class="k">:</span>        <span class="b">7</span><span class="k">,</span>
+    <span class="s">"location_id"</span><span class="k">:</span>    <span class="b">3</span><span class="k">,</span>
+    <span class="s">"check_in_time"</span><span class="k">:</span>  <span class="n">"2026-08-31T08:47:00Z"</span><span class="k">,</span>
+    <span class="s">"check_out_time"</span><span class="k">:</span> <span class="b">null</span><span class="k">,</span>
+    <span class="s">"check_in_lat"</span><span class="k">:</span>   <span class="b">51.5074</span><span class="k">,</span>
+    <span class="s">"check_in_lng"</span><span class="k">:</span>   <span class="b">-0.1278</span><span class="k">,</span>
+    <span class="s">"hours_worked"</span><span class="k">:</span>   <span class="b">null</span>
+  <span class="k">}</span>
+<span class="k">}</span></pre>
+            </div>
+          </div>
+          <div class="ep-note">403 returned when coordinates fall outside the geofence radius.</div>
+        </div>
+      </div>
+
+      <div class="ep" id="att-checkout">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-post">POST</span><span class="ep-path">/attendance/checkout</span>
+          <span class="auth-chip auth-worker">Worker</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">Clock out of the current open session. Server calculates and stores <code>hours_worked</code>.</div>
+          <div class="pane-row">
+            <div class="pane">
+              <div class="pane-label">Request body</div>
+              <pre><span class="k">{</span>
+  <span class="s">"lat"</span><span class="k">:</span> <span class="b">51.5074</span><span class="k">,</span>
+  <span class="s">"lng"</span><span class="k">:</span> <span class="b">-0.1278</span>
+<span class="k">}</span></pre>
+            </div>
+            <div class="pane">
+              <div class="pane-label">Response 200</div>
+              <pre><span class="k">{</span>
+  <span class="s">"message"</span><span class="k">:</span>     <span class="n">"Checked out successfully"</span><span class="k">,</span>
+  <span class="s">"hoursWorked"</span><span class="k">:</span> <span class="b">7.83</span><span class="k">,</span>
+  <span class="s">"record"</span><span class="k">: {</span>
+    <span class="s">"id"</span><span class="k">:</span>             <span class="b">201</span><span class="k">,</span>
+    <span class="s">"check_out_time"</span><span class="k">:</span> <span class="n">"2026-08-31T16:37:00Z"</span><span class="k">,</span>
+    <span class="s">"check_out_lat"</span><span class="k">:</span>  <span class="b">51.5074</span><span class="k">,</span>
+    <span class="s">"check_out_lng"</span><span class="k">:</span>  <span class="b">-0.1278</span><span class="k">,</span>
+    <span class="s">"hours_worked"</span><span class="k">:</span>   <span class="b">7.83</span>
+  <span class="k">}</span>
+<span class="k">}</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ep" id="att-status">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-get">GET</span><span class="ep-path">/attendance/status</span>
+          <span class="auth-chip auth-worker">Worker</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">Check whether the current worker is clocked in. Returns the open record if yes.</div>
+          <div class="pane-row">
+            <div class="pane"><div class="pane-label">Request</div><pre><span class="k">No body.</span></pre></div>
+            <div class="pane">
+              <div class="pane-label">Response 200</div>
+              <pre><span class="k">{</span>
+  <span class="s">"clocked_in"</span><span class="k">:</span> <span class="b">true</span><span class="k">,</span>
+  <span class="s">"record"</span><span class="k">: {</span>
+    <span class="s">"id"</span><span class="k">:</span>            <span class="b">201</span><span class="k">,</span>
+    <span class="s">"check_in_time"</span><span class="k">:</span> <span class="n">"2026-08-31T08:47:00Z"</span><span class="k">,</span>
+    <span class="s">"location_name"</span><span class="k">:</span> <span class="n">"Head Office"</span>
+  <span class="k">}</span>
+<span class="k">}</span>
+<span class="k">// or:</span>
+<span class="k">{</span> <span class="s">"clocked_in"</span><span class="k">:</span> <span class="b">false</span><span class="k">,</span> <span class="s">"record"</span><span class="k">:</span> <span class="b">null</span> <span class="k">}</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ep" id="att-today">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-get">GET</span><span class="ep-path">/attendance/today</span>
+          <span class="auth-chip auth-worker">Worker</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">All sessions for today with total hours accumulated.</div>
+          <div class="pane-row">
+            <div class="pane"><div class="pane-label">Request</div><pre><span class="k">No body.</span></pre></div>
+            <div class="pane">
+              <div class="pane-label">Response 200</div>
+              <pre><span class="k">{</span>
+  <span class="s">"totalHours"</span><span class="k">:</span> <span class="b">7.83</span><span class="k">,</span>
+  <span class="s">"records"</span><span class="k">: [{</span>
+    <span class="s">"id"</span><span class="k">:</span>             <span class="b">201</span><span class="k">,</span>
+    <span class="s">"check_in_time"</span><span class="k">:</span>  <span class="n">"2026-08-31T08:47:00Z"</span><span class="k">,</span>
+    <span class="s">"check_out_time"</span><span class="k">:</span> <span class="n">"2026-08-31T16:37:00Z"</span><span class="k">,</span>
+    <span class="s">"hours_worked"</span><span class="k">:</span>   <span class="b">7.83</span><span class="k">,</span>
+    <span class="s">"location_name"</span><span class="k">:</span>  <span class="n">"Head Office"</span>
+  <span class="k">}]</span>
+<span class="k">}</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ep" id="att-history">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-get">GET</span><span class="ep-path">/attendance/history</span>
+          <span class="auth-chip auth-worker">Worker</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">Paginated attendance history for the caller. Default: page 1, 20 records.</div>
+          <div class="pane-row">
+            <div class="pane"><div class="pane-label">Query params</div><pre><span class="k">?</span><span class="s">page</span><span class="k">=</span><span class="b">1</span><span class="k">&amp;</span><span class="s">limit</span><span class="k">=</span><span class="b">20</span></pre></div>
+            <div class="pane">
+              <div class="pane-label">Response 200</div>
+              <pre><span class="k">{</span>
+  <span class="s">"page"</span><span class="k">:</span>    <span class="b">1</span><span class="k">,</span>
+  <span class="s">"pages"</span><span class="k">:</span>   <span class="b">4</span><span class="k">,</span>
+  <span class="s">"total"</span><span class="k">:</span>   <span class="b">78</span><span class="k">,</span>
+  <span class="s">"records"</span><span class="k">: [</span> <span class="k">{ ... }</span> <span class="k">]</span>
+<span class="k">}</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADMIN DASHBOARD -->
+    <div class="section" id="section-dashboard">
+      <div class="section-heading">Admin — Dashboard</div>
+
+      <div class="ep" id="adm-dashboard">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-get">GET</span><span class="ep-path">/admin/dashboard</span>
+          <span class="auth-chip auth-admin">Admin</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">High-level summary: total workers, who's in now, hours logged today.</div>
+          <div class="pane-row">
+            <div class="pane"><div class="pane-label">Request</div><pre><span class="k">No body.</span></pre></div>
+            <div class="pane">
+              <div class="pane-label">Response 200</div>
+              <pre><span class="k">{</span>
+  <span class="s">"totalWorkers"</span><span class="k">:</span> <span class="b">24</span><span class="k">,</span>
+  <span class="s">"currentlyIn"</span><span class="k">:</span>  <span class="b">11</span><span class="k">,</span>
+  <span class="s">"hoursToday"</span><span class="k">:</span>   <span class="b">86.5</span>
+<span class="k">}</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ep" id="adm-live">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-get">GET</span><span class="ep-path">/admin/live</span>
+          <span class="auth-chip auth-admin">Admin</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">All workers currently clocked in with live GPS coordinates.</div>
+          <div class="pane-row">
+            <div class="pane"><div class="pane-label">Request</div><pre><span class="k">No body.</span></pre></div>
+            <div class="pane">
+              <div class="pane-label">Response 200 — array</div>
+              <pre><span class="k">[{</span>
+  <span class="s">"id"</span><span class="k">:</span>            <span class="b">7</span><span class="k">,</span>
+  <span class="s">"name"</span><span class="k">:</span>          <span class="n">"Alice"</span><span class="k">,</span>
+  <span class="s">"staff_id"</span><span class="k">:</span>      <span class="n">"EMP-42"</span><span class="k">,</span>
+  <span class="s">"department"</span><span class="k">:</span>    <span class="n">"Engineering"</span><span class="k">,</span>
+  <span class="s">"check_in_time"</span><span class="k">:</span> <span class="n">"2026-08-31T08:47:00Z"</span><span class="k">,</span>
+  <span class="s">"location_name"</span><span class="k">:</span> <span class="n">"Head Office"</span><span class="k">,</span>
+  <span class="s">"check_in_lat"</span><span class="k">:</span>  <span class="b">51.5074</span><span class="k">,</span>
+  <span class="s">"check_in_lng"</span><span class="k">:</span>  <span class="b">-0.1278</span>
+<span class="k">}]</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADMIN WORKERS -->
+    <div class="section" id="section-workers">
+      <div class="section-heading">Admin — Workers</div>
+
+      <div class="ep" id="adm-workers-list">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-get">GET</span><span class="ep-path">/admin/workers</span>
+          <span class="auth-chip auth-admin">Admin</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">All workers with payroll and compliance fields pre-computed.</div>
+          <div class="pane-full">
+            <div class="pane-label">Response 200 — array</div>
+            <pre><span class="k">[{</span>
+  <span class="s">"id"</span><span class="k">:</span>                  <span class="b">7</span><span class="k">,</span>
+  <span class="s">"name"</span><span class="k">:</span>                <span class="n">"Alice"</span><span class="k">,</span>
+  <span class="s">"email"</span><span class="k">:</span>               <span class="n">"alice@acme.com"</span><span class="k">,</span>
+  <span class="s">"staff_id"</span><span class="k">:</span>            <span class="n">"EMP-42"</span><span class="k">,</span>
+  <span class="s">"role"</span><span class="k">:</span>                <span class="n">"worker"</span><span class="k">,</span>
+  <span class="s">"department"</span><span class="k">:</span>          <span class="n">"Engineering"</span><span class="k">,</span>
+  <span class="s">"phone"</span><span class="k">:</span>               <span class="n">"+44 7700 900123"</span><span class="k">,</span>
+  <span class="s">"active"</span><span class="k">:</span>              <span class="b">true</span><span class="k">,</span>
+  <span class="s">"location_id"</span><span class="k">:</span>         <span class="b">3</span><span class="k">,</span>
+  <span class="s">"location_name"</span><span class="k">:</span>       <span class="n">"Head Office"</span><span class="k">,</span>
+  <span class="s">"weekly_hours"</span><span class="k">:</span>        <span class="b">40.00</span><span class="k">,</span>     <span class="k">// target Mon–Sun</span>
+  <span class="s">"week_hours_worked"</span><span class="k">:</span>   <span class="b">27.50</span><span class="k">,</span>     <span class="k">// actual this week</span>
+  <span class="s">"pay_rate"</span><span class="k">:</span>            <span class="b">12.50</span><span class="k">,</span>     <span class="k">// £/hr</span>
+  <span class="s">"pay_period"</span><span class="k">:</span>          <span class="n">"monthly"</span><span class="k">,</span> <span class="k">// company setting</span>
+  <span class="s">"period_hours_worked"</span><span class="k">:</span> <span class="b">62.00</span><span class="k">,</span>     <span class="k">// hours in pay window</span>
+  <span class="s">"period_pay"</span><span class="k">:</span>          <span class="b">775.00</span>     <span class="k">// period_hours × pay_rate</span>
+<span class="k">}]</span></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="ep" id="adm-workers-create">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-post">POST</span><span class="ep-path">/admin/workers</span>
+          <span class="auth-chip auth-admin">Admin</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">Create a new worker. Fields marked <span style="color:var(--del)">*</span> are required.</div>
+          <div class="pane-row">
+            <div class="pane">
+              <div class="pane-label">Request body</div>
+              <pre><span class="k">{</span>
+  <span class="s">"name"</span><span class="k">:</span>         <span class="n">"Bob Jones"</span><span class="k">,</span>    <span class="r">// *</span>
+  <span class="s">"email"</span><span class="k">:</span>        <span class="n">"bob@acme.com"</span><span class="k">,</span> <span class="r">// *</span>
+  <span class="s">"password"</span><span class="k">:</span>     <span class="n">"••••••••"</span><span class="k">,</span>     <span class="r">// *</span>
+  <span class="s">"staff_id"</span><span class="k">:</span>     <span class="n">"EMP-43"</span><span class="k">,</span>
+  <span class="s">"role"</span><span class="k">:</span>         <span class="n">"worker"</span><span class="k">,</span>
+  <span class="s">"department"</span><span class="k">:</span>   <span class="n">"Ops"</span><span class="k">,</span>
+  <span class="s">"phone"</span><span class="k">:</span>        <span class="n">"+44 7700 900000"</span><span class="k">,</span>
+  <span class="s">"location_id"</span><span class="k">:</span>  <span class="b">3</span><span class="k">,</span>
+  <span class="s">"weekly_hours"</span><span class="k">:</span> <span class="b">40</span><span class="k">,</span>
+  <span class="s">"pay_rate"</span><span class="k">:</span>     <span class="b">12.50</span>
+<span class="k">}</span></pre>
+            </div>
+            <div class="pane">
+              <div class="pane-label">Response 201</div>
+              <pre><span class="k">{</span>
+  <span class="s">"id"</span><span class="k">:</span>           <span class="b">8</span><span class="k">,</span>
+  <span class="s">"name"</span><span class="k">:</span>         <span class="n">"Bob Jones"</span><span class="k">,</span>
+  <span class="s">"email"</span><span class="k">:</span>        <span class="n">"bob@acme.com"</span><span class="k">,</span>
+  <span class="s">"staff_id"</span><span class="k">:</span>     <span class="n">"EMP-43"</span><span class="k">,</span>
+  <span class="s">"role"</span><span class="k">:</span>         <span class="n">"worker"</span><span class="k">,</span>
+  <span class="s">"active"</span><span class="k">:</span>       <span class="b">true</span><span class="k">,</span>
+  <span class="s">"weekly_hours"</span><span class="k">:</span> <span class="b">40.00</span><span class="k">,</span>
+  <span class="s">"pay_rate"</span><span class="k">:</span>     <span class="b">12.50</span>
+<span class="k">}</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ep" id="adm-workers-update">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-put">PUT</span><span class="ep-path">/admin/workers/<span class="param">:id</span></span>
+          <span class="auth-chip auth-admin">Admin</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">Update any worker fields. All optional — omitted fields keep existing values (COALESCE).</div>
+          <div class="pane-row">
+            <div class="pane">
+              <div class="pane-label">Request body (all optional)</div>
+              <pre><span class="k">{</span>
+  <span class="s">"name"</span><span class="k">:</span>         <span class="n">"Bob Smith"</span><span class="k">,</span>
+  <span class="s">"email"</span><span class="k">:</span>        <span class="n">"bob2@acme.com"</span><span class="k">,</span>
+  <span class="s">"password"</span><span class="k">:</span>     <span class="n">"newpass"</span><span class="k">,</span>
+  <span class="s">"staff_id"</span><span class="k">:</span>     <span class="n">"EMP-43"</span><span class="k">,</span>
+  <span class="s">"role"</span><span class="k">:</span>         <span class="n">"admin"</span><span class="k">,</span>
+  <span class="s">"department"</span><span class="k">:</span>   <span class="n">"Ops"</span><span class="k">,</span>
+  <span class="s">"phone"</span><span class="k">:</span>        <span class="n">"+44 7700 900001"</span><span class="k">,</span>
+  <span class="s">"active"</span><span class="k">:</span>       <span class="b">false</span><span class="k">,</span>
+  <span class="s">"location_id"</span><span class="k">:</span>  <span class="b">4</span><span class="k">,</span>
+  <span class="s">"weekly_hours"</span><span class="k">:</span> <span class="b">37.5</span><span class="k">,</span>
+  <span class="s">"pay_rate"</span><span class="k">:</span>     <span class="b">14.00</span>
+<span class="k">}</span></pre>
+            </div>
+            <div class="pane">
+              <div class="pane-label">Response 200</div>
+              <pre><span class="k">{ ...updated worker object }</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ep" id="adm-workers-delete">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-delete">DELETE</span><span class="ep-path">/admin/workers/<span class="param">:id</span></span>
+          <span class="auth-chip auth-admin">Admin</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">Permanently delete a worker. Attendance records are cascade-deleted.</div>
+          <div class="pane-row">
+            <div class="pane"><div class="pane-label">Request</div><pre><span class="k">No body.</span></pre></div>
+            <div class="pane">
+              <div class="pane-label">Response 200</div>
+              <pre><span class="k">{ </span><span class="s">"message"</span><span class="k">:</span> <span class="n">"Worker deleted"</span> <span class="k">}</span>
+<span class="k">// 404 if not found</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADMIN LOCATIONS -->
+    <div class="section" id="section-locations">
+      <div class="section-heading">Admin — Locations</div>
+
+      <div class="ep" id="adm-loc-list">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-get">GET</span><span class="ep-path">/admin/locations</span>
+          <span class="auth-chip auth-admin">Admin</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">All geofenced work locations for the company.</div>
+          <div class="pane-row">
+            <div class="pane"><div class="pane-label">Request</div><pre><span class="k">No body.</span></pre></div>
+            <div class="pane">
+              <div class="pane-label">Response 200 — array</div>
+              <pre><span class="k">[{</span>
+  <span class="s">"id"</span><span class="k">:</span>            <span class="b">3</span><span class="k">,</span>
+  <span class="s">"name"</span><span class="k">:</span>          <span class="n">"Head Office"</span><span class="k">,</span>
+  <span class="s">"address"</span><span class="k">:</span>       <span class="n">"1 Leadenhall St, EC3V"</span><span class="k">,</span>
+  <span class="s">"lat"</span><span class="k">:</span>           <span class="b">51.5127</span><span class="k">,</span>
+  <span class="s">"lng"</span><span class="k">:</span>           <span class="b">-0.0829</span><span class="k">,</span>
+  <span class="s">"radius_meters"</span><span class="k">:</span> <span class="b">200</span><span class="k">,</span>
+  <span class="s">"active"</span><span class="k">:</span>        <span class="b">true</span>
+<span class="k">}]</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ep" id="adm-loc-create">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-post">POST</span><span class="ep-path">/admin/locations</span>
+          <span class="auth-chip auth-admin">Admin</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">Add a new geofenced location.</div>
+          <div class="pane-row">
+            <div class="pane">
+              <div class="pane-label">Request body</div>
+              <pre><span class="k">{</span>
+  <span class="s">"name"</span><span class="k">:</span>          <span class="n">"Warehouse"</span><span class="k">,</span> <span class="r">// *</span>
+  <span class="s">"lat"</span><span class="k">:</span>           <span class="b">53.4808</span><span class="k">,</span>     <span class="r">// *</span>
+  <span class="s">"lng"</span><span class="k">:</span>           <span class="b">-2.2426</span><span class="k">,</span>     <span class="r">// *</span>
+  <span class="s">"address"</span><span class="k">:</span>       <span class="n">"10 Dock Rd"</span><span class="k">,</span>
+  <span class="s">"radius_meters"</span><span class="k">:</span> <span class="b">150</span>
+<span class="k">}</span></pre>
+            </div>
+            <div class="pane"><div class="pane-label">Response 201</div><pre><span class="k">{ ...location object }</span></pre></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ep" id="adm-loc-update">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-put">PUT</span><span class="ep-path">/admin/locations/<span class="param">:id</span></span>
+          <span class="auth-chip auth-admin">Admin</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">Update any location field. All optional.</div>
+          <div class="pane-row">
+            <div class="pane">
+              <div class="pane-label">Request body (all optional)</div>
+              <pre><span class="k">{</span>
+  <span class="s">"name"</span><span class="k">:</span>          <span class="n">"Warehouse B"</span><span class="k">,</span>
+  <span class="s">"lat"</span><span class="k">:</span>           <span class="b">53.481</span><span class="k">,</span>
+  <span class="s">"lng"</span><span class="k">:</span>           <span class="b">-2.243</span><span class="k">,</span>
+  <span class="s">"address"</span><span class="k">:</span>       <span class="n">"12 Dock Rd"</span><span class="k">,</span>
+  <span class="s">"radius_meters"</span><span class="k">:</span> <span class="b">200</span><span class="k">,</span>
+  <span class="s">"active"</span><span class="k">:</span>        <span class="b">false</span>
+<span class="k">}</span></pre>
+            </div>
+            <div class="pane"><div class="pane-label">Response 200</div><pre><span class="k">{ ...updated location }</span></pre></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADMIN RECORDS -->
+    <div class="section" id="section-records">
+      <div class="section-heading">Admin — Attendance Records</div>
+
+      <div class="ep" id="adm-att-list">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-get">GET</span><span class="ep-path">/admin/attendance</span>
+          <span class="auth-chip auth-admin">Admin</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">Paginated attendance records across all workers with optional filters.</div>
+          <div class="pane-row">
+            <div class="pane">
+              <div class="pane-label">Query params</div>
+              <pre><span class="k">?</span><span class="s">user_id</span><span class="k">=</span><span class="b">7</span>
+<span class="k">&amp;</span><span class="s">date_from</span><span class="k">=</span><span class="n">2026-08-01</span>
+<span class="k">&amp;</span><span class="s">date_to</span><span class="k">=</span><span class="n">2026-08-31</span>
+<span class="k">&amp;</span><span class="s">page</span><span class="k">=</span><span class="b">1</span></pre>
+            </div>
+            <div class="pane">
+              <div class="pane-label">Response 200</div>
+              <pre><span class="k">{</span>
+  <span class="s">"page"</span><span class="k">:</span>    <span class="b">1</span><span class="k">,</span> <span class="s">"pages"</span><span class="k">:</span> <span class="b">3</span><span class="k">,</span> <span class="s">"total"</span><span class="k">:</span> <span class="b">52</span><span class="k">,</span>
+  <span class="s">"records"</span><span class="k">: [{</span>
+    <span class="s">"id"</span><span class="k">:</span>             <span class="b">201</span><span class="k">,</span>
+    <span class="s">"user_id"</span><span class="k">:</span>        <span class="b">7</span><span class="k">,</span>
+    <span class="s">"worker_name"</span><span class="k">:</span>    <span class="n">"Alice"</span><span class="k">,</span>
+    <span class="s">"check_in_time"</span><span class="k">:</span>  <span class="n">"2026-08-31T08:47:00Z"</span><span class="k">,</span>
+    <span class="s">"check_out_time"</span><span class="k">:</span> <span class="n">"2026-08-31T16:37:00Z"</span><span class="k">,</span>
+    <span class="s">"hours_worked"</span><span class="k">:</span>   <span class="b">7.83</span><span class="k">,</span>
+    <span class="s">"location_name"</span><span class="k">:</span>  <span class="n">"Head Office"</span><span class="k">,</span>
+    <span class="s">"edit_reason"</span><span class="k">:</span>    <span class="b">null</span>
+  <span class="k">}]</span>
+<span class="k">}</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ep" id="adm-att-edit">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-put">PUT</span><span class="ep-path">/admin/attendance/<span class="param">:id</span></span>
+          <span class="auth-chip auth-admin">Admin</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">Manually correct a record. Audit reason required — stored with admin ID and timestamp.</div>
+          <div class="pane-row">
+            <div class="pane">
+              <div class="pane-label">Request body</div>
+              <pre><span class="k">{</span>
+  <span class="s">"check_in_time"</span><span class="k">:</span>  <span class="n">"2026-08-31T09:00:00Z"</span><span class="k">,</span> <span class="r">// *</span>
+  <span class="s">"check_out_time"</span><span class="k">:</span> <span class="n">"2026-08-31T17:00:00Z"</span><span class="k">,</span>
+  <span class="s">"edit_reason"</span><span class="k">:</span>    <span class="n">"Clock missed at gate"</span><span class="k">,</span>   <span class="r">// *</span>
+  <span class="s">"notes"</span><span class="k">:</span>          <span class="n">"Confirmed by supervisor"</span>
+<span class="k">}</span></pre>
+            </div>
+            <div class="pane"><div class="pane-label">Response 200</div><pre><span class="k">{ ...updated record }</span></pre></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ep" id="adm-att-delete">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-delete">DELETE</span><span class="ep-path">/admin/attendance/<span class="param">:id</span></span>
+          <span class="auth-chip auth-admin">Admin</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">Delete a specific attendance record (company-scoped).</div>
+          <div class="pane-row">
+            <div class="pane"><div class="pane-label">Request</div><pre><span class="k">No body.</span></pre></div>
+            <div class="pane"><div class="pane-label">Response 200</div><pre><span class="k">{ </span><span class="s">"message"</span><span class="k">:</span> <span class="n">"Record deleted"</span> <span class="k">}</span></pre></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ep" id="adm-att-report">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-get">GET</span><span class="ep-path">/admin/reports</span>
+          <span class="auth-chip auth-admin">Admin</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">Aggregate report per worker over a date range — shifts, total hours, open sessions.</div>
+          <div class="pane-row">
+            <div class="pane"><div class="pane-label">Query params</div><pre><span class="k">?</span><span class="s">date_from</span><span class="k">=</span><span class="n">2026-08-01</span>
+<span class="k">&amp;</span><span class="s">date_to</span><span class="k">=</span><span class="n">2026-08-31</span></pre></div>
+            <div class="pane">
+              <div class="pane-label">Response 200</div>
+              <pre><span class="k">{</span>
+  <span class="s">"from"</span><span class="k">:</span> <span class="n">"2026-08-01"</span><span class="k">,</span> <span class="s">"to"</span><span class="k">:</span> <span class="n">"2026-08-31"</span><span class="k">,</span>
+  <span class="s">"rows"</span><span class="k">: [{</span>
+    <span class="s">"id"</span><span class="k">:</span>          <span class="b">7</span><span class="k">,</span>
+    <span class="s">"name"</span><span class="k">:</span>        <span class="n">"Alice"</span><span class="k">,</span>
+    <span class="s">"staff_id"</span><span class="k">:</span>    <span class="n">"EMP-42"</span><span class="k">,</span>
+    <span class="s">"department"</span><span class="k">:</span>  <span class="n">"Engineering"</span><span class="k">,</span>
+    <span class="s">"shifts"</span><span class="k">:</span>      <span class="b">22</span><span class="k">,</span>
+    <span class="s">"total_hours"</span><span class="k">:</span> <span class="b">172.50</span><span class="k">,</span>
+    <span class="s">"open_shifts"</span><span class="k">:</span> <span class="b">0</span>
+  <span class="k">}]</span>
+<span class="k">}</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADMIN COMPANY -->
+    <div class="section" id="section-company">
+      <div class="section-heading">Admin — Company Settings</div>
+
+      <div class="ep" id="adm-company-get">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-get">GET</span><span class="ep-path">/admin/company</span>
+          <span class="auth-chip auth-admin">Admin</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">Fetch the company record including pay period setting.</div>
+          <div class="pane-row">
+            <div class="pane"><div class="pane-label">Request</div><pre><span class="k">No body.</span></pre></div>
+            <div class="pane">
+              <div class="pane-label">Response 200</div>
+              <pre><span class="k">{</span>
+  <span class="s">"id"</span><span class="k">:</span>           <span class="b">1</span><span class="k">,</span>
+  <span class="s">"name"</span><span class="k">:</span>         <span class="n">"Acme Ltd"</span><span class="k">,</span>
+  <span class="s">"company_code"</span><span class="k">:</span> <span class="n">"ACME01"</span><span class="k">,</span>
+  <span class="s">"pay_period"</span><span class="k">:</span>   <span class="n">"monthly"</span><span class="k">,</span>
+  <span class="s">"created_at"</span><span class="k">:</span>   <span class="n">"2026-01-15T10:00:00Z"</span>
+<span class="k">}</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ep" id="adm-company-put">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-put">PUT</span><span class="ep-path">/admin/company</span>
+          <span class="auth-chip auth-admin">Admin</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">Update company settings. <code>pay_period</code> must be <code>"weekly"</code> or <code>"monthly"</code>.</div>
+          <div class="pane-row">
+            <div class="pane">
+              <div class="pane-label">Request body (all optional)</div>
+              <pre><span class="k">{</span>
+  <span class="s">"name"</span><span class="k">:</span>         <span class="n">"Acme Group Ltd"</span><span class="k">,</span>
+  <span class="s">"company_code"</span><span class="k">:</span> <span class="n">"ACME02"</span><span class="k">,</span>
+  <span class="s">"pay_period"</span><span class="k">:</span>   <span class="n">"weekly"</span>
+<span class="k">}</span></pre>
+            </div>
+            <div class="pane">
+              <div class="pane-label">Response 200 / 400</div>
+              <pre><span class="k">{ ...updated company }</span>
+
+<span class="k">// 400:</span>
+<span class="k">{</span> <span class="s">"error"</span><span class="k">:</span> <span class="r">"pay_period must be weekly or monthly"</span> <span class="k">}</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETUP -->
+    <div class="section" id="section-setup">
+      <div class="section-heading">Setup — SETUP_KEY protected</div>
+
+      <div class="ep" id="setup-register">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-setup">POST</span><span class="ep-path">/companies/register</span>
+          <span class="auth-chip auth-setup">SETUP_KEY</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">Bootstrap a new company with its first admin. Returns a login token immediately.</div>
+          <div class="pane-row">
+            <div class="pane">
+              <div class="pane-label">Request body</div>
+              <pre><span class="k">{</span>
+  <span class="s">"company_name"</span><span class="k">:</span> <span class="n">"Acme Ltd"</span><span class="k">,</span>
+  <span class="s">"company_code"</span><span class="k">:</span> <span class="n">"ACME01"</span><span class="k">,</span>
+  <span class="s">"admin_name"</span><span class="k">:</span>   <span class="n">"Jane Admin"</span><span class="k">,</span>
+  <span class="s">"admin_email"</span><span class="k">:</span>  <span class="n">"jane@acme.com"</span><span class="k">,</span>
+  <span class="s">"password"</span><span class="k">:</span>     <span class="n">"securepass"</span><span class="k">,</span>
+  <span class="s">"setup_key"</span><span class="k">:</span>    <span class="n">"&lt;SETUP_KEY&gt;"</span>
+<span class="k">}</span></pre>
+            </div>
+            <div class="pane">
+              <div class="pane-label">Response 201</div>
+              <pre><span class="k">{</span>
+  <span class="s">"message"</span><span class="k">:</span> <span class="n">"Company registered"</span><span class="k">,</span>
+  <span class="s">"token"</span><span class="k">:</span>   <span class="n">"eyJhbGci..."</span><span class="k">,</span>
+  <span class="s">"company"</span><span class="k">: {</span> <span class="s">"id"</span><span class="k">:</span> <span class="b">2</span><span class="k">,</span> <span class="s">"name"</span><span class="k">:</span> <span class="n">"Acme Ltd"</span> <span class="k">},</span>
+  <span class="s">"user"</span><span class="k">: {</span> <span class="s">"id"</span><span class="k">:</span> <span class="b">9</span><span class="k">,</span> <span class="s">"role"</span><span class="k">:</span> <span class="n">"admin"</span> <span class="k">}</span>
+<span class="k">}</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ep" id="setup-list">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-setup">POST</span><span class="ep-path">/companies/list</span>
+          <span class="auth-chip auth-setup">SETUP_KEY</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">List all registered companies with admin details.</div>
+          <div class="pane-row">
+            <div class="pane"><div class="pane-label">Request body</div><pre><span class="k">{</span> <span class="s">"setup_key"</span><span class="k">:</span> <span class="n">"&lt;SETUP_KEY&gt;"</span> <span class="k">}</span></pre></div>
+            <div class="pane">
+              <div class="pane-label">Response 200</div>
+              <pre><span class="k">[{</span>
+  <span class="s">"id"</span><span class="k">:</span>           <span class="b">1</span><span class="k">,</span>
+  <span class="s">"name"</span><span class="k">:</span>         <span class="n">"Acme Ltd"</span><span class="k">,</span>
+  <span class="s">"company_code"</span><span class="k">:</span> <span class="n">"ACME01"</span><span class="k">,</span>
+  <span class="s">"admin_email"</span><span class="k">:</span>  <span class="n">"jane@acme.com"</span>
+<span class="k">}]</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ep" id="setup-reset">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-setup">POST</span><span class="ep-path">/admin-reset</span>
+          <span class="auth-chip auth-setup">SETUP_KEY</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">Reset the password of all admins for a company. Emergency recovery only.</div>
+          <div class="pane-row">
+            <div class="pane">
+              <div class="pane-label">Request body</div>
+              <pre><span class="k">{</span>
+  <span class="s">"setup_key"</span><span class="k">:</span>    <span class="n">"&lt;SETUP_KEY&gt;"</span><span class="k">,</span>
+  <span class="s">"company_code"</span><span class="k">:</span> <span class="n">"ACME01"</span><span class="k">,</span>
+  <span class="s">"new_password"</span><span class="k">:</span> <span class="n">"newpass"</span>
+<span class="k">}</span></pre>
+            </div>
+            <div class="pane">
+              <div class="pane-label">Response 200</div>
+              <pre><span class="k">{</span>
+  <span class="s">"message"</span><span class="k">:</span> <span class="n">"Password reset for 1 admin(s)"</span><span class="k">,</span>
+  <span class="s">"admins"</span><span class="k">:</span>  <span class="k">[{</span> <span class="s">"id"</span><span class="k">:</span> <span class="b">9</span><span class="k">,</span> <span class="s">"email"</span><span class="k">:</span> <span class="n">"jane@acme.com"</span> <span class="k">}]</span>
+<span class="k">}</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HEALTH -->
+    <div class="section" id="section-health">
+      <div class="section-heading">Health</div>
+      <div class="ep" id="health">
+        <div class="ep-head" onclick="toggle(this)">
+          <span class="method m-get">GET</span><span class="ep-path">/health</span>
+          <span class="auth-chip auth-any">Public</span><span class="ep-toggle">&#9660;</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-desc">Liveness probe for uptime monitoring and Render health checks.</div>
+          <div class="pane-row">
+            <div class="pane"><div class="pane-label">Request</div><pre><span class="k">No body.</span></pre></div>
+            <div class="pane"><div class="pane-label">Response 200</div><pre><span class="k">{</span> <span class="s">"ok"</span><span class="k">:</span> <span class="b">true</span> <span class="k">}</span></pre></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="height:80px;"></div>
+  </main>
+</div>
+
+<script>
+  function toggle(head) {
+    head.closest('.ep').classList.toggle('open');
+  }
+  document.querySelectorAll('.section').forEach(s => {
+    const first = s.querySelector('.ep');
+    if (first) first.classList.add('open');
+  });
+  function printPDF() {
+    const closed = [];
+    document.querySelectorAll('.ep:not(.open)').forEach(ep => { closed.push(ep); ep.classList.add('open'); });
+    window.print();
+    closed.forEach(ep => ep.classList.remove('open'));
+  }
+</script>
+</body>
+</html>

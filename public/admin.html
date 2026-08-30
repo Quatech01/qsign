@@ -130,10 +130,11 @@ tr:hover td{background:var(--faint)}
 /* MAP PICKER */
 #loc-map{height:240px;border-radius:8px;border:1.5px solid var(--border);overflow:hidden;margin-bottom:.75rem;z-index:0}
 .map-search-wrap{position:relative;margin-bottom:.75rem}
-.map-search-results{position:absolute;top:100%;left:0;right:0;background:var(--panel);border:1.5px solid var(--blue);border-top:none;border-radius:0 0 8px 8px;z-index:2000;max-height:200px;overflow-y:auto;display:none}
+.map-search-results{position:absolute;top:100%;left:0;right:0;background:var(--panel);border:1.5px solid var(--blue);border-top:none;border-radius:0 0 8px 8px;z-index:2000;max-height:220px;overflow-y:auto;display:none;box-shadow:0 6px 20px rgba(0,0,0,.18)}
 .msr-item{padding:.5rem .9rem;cursor:pointer;font-size:.82rem;border-bottom:1px solid var(--border);line-height:1.35}
 .msr-item:last-child{border-bottom:none}
-.msr-item:hover{background:var(--faint)}
+.msr-item:hover,.msr-item--active{background:var(--faint)}
+.msr-loading{padding:.5rem .9rem;font-size:.78rem;color:var(--muted)}
 .map-hint{font-size:.72rem;color:var(--muted);margin-bottom:.5rem}
 .modal-wide{max-width:600px!important}
 
@@ -505,7 +506,7 @@ tr:hover td{background:var(--faint)}
             <label>Search Address</label>
             <div class="map-search-wrap">
               <input type="text" id="wm-loc-search" placeholder="Type an address to search…" autocomplete="off"
-                oninput="onWmMapSearch(this.value)"
+                oninput="onWmMapSearch(this.value)" onkeydown="onWmMapSearchKey(event)"
                 style="padding:.6rem .9rem;border:1.5px solid var(--border);border-radius:8px;background:var(--panel);color:var(--text);font-size:.875rem;outline:none;width:100%;transition:border-color .15s">
               <div class="map-search-results" id="wm-map-search-results"></div>
             </div>
@@ -559,7 +560,8 @@ tr:hover td{background:var(--faint)}
         <label>Search Address</label>
         <div class="map-search-wrap">
           <input type="text" id="lm-search" placeholder="Type an address to search…" autocomplete="off"
-            oninput="onMapSearch(this.value)" style="padding:.6rem .9rem;border:1.5px solid var(--border);border-radius:8px;background:var(--panel);color:var(--text);font-size:.875rem;outline:none;width:100%;transition:border-color .15s">
+            oninput="onMapSearch(this.value)" onkeydown="onMapSearchKey(event)"
+            style="padding:.6rem .9rem;border:1.5px solid var(--border);border-radius:8px;background:var(--panel);color:var(--text);font-size:.875rem;outline:none;width:100%;transition:border-color .15s">
           <div class="map-search-results" id="map-search-results"></div>
         </div>
       </div>
@@ -921,28 +923,43 @@ function updateWmRadiusCircle() {
   if (wmCircle) wmCircle.setRadius(r);
 }
 
+let wmSearchIdx = -1;
 function onWmMapSearch(q) {
   clearTimeout(wmSearchTimer);
+  wmSearchIdx = -1;
   const box = document.getElementById('wm-map-search-results');
   if (q.length < 3) { box.style.display = 'none'; return; }
+  box.innerHTML = '<div class="msr-loading">Searching…</div>';
+  box.style.display = 'block';
   wmSearchTimer = setTimeout(async () => {
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5`);
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=6&countrycodes=gb&addressdetails=1`);
       const results = await res.json();
-      if (!results.length) { box.style.display = 'none'; return; }
+      if (!results.length) { box.innerHTML = '<div class="msr-loading">No results found</div>'; return; }
       box.innerHTML = results.map((r, i) =>
         `<div class="msr-item" onclick="wmSelectResult(${i})" data-lat="${r.lat}" data-lon="${r.lon}" data-name="${encodeURIComponent(r.display_name)}">${r.display_name}</div>`
       ).join('');
-      box.style.display = 'block';
-    } catch {}
-  }, 400);
+    } catch { box.style.display = 'none'; }
+  }, 350);
+}
+
+function onWmMapSearchKey(e) {
+  const box = document.getElementById('wm-map-search-results');
+  const items = box.querySelectorAll('.msr-item');
+  if (!items.length) return;
+  if (e.key === 'ArrowDown') { e.preventDefault(); wmSearchIdx = Math.min(wmSearchIdx + 1, items.length - 1); items.forEach((el, i) => el.classList.toggle('msr-item--active', i === wmSearchIdx)); items[wmSearchIdx].scrollIntoView({block:'nearest'}); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); wmSearchIdx = Math.max(wmSearchIdx - 1, 0); items.forEach((el, i) => el.classList.toggle('msr-item--active', i === wmSearchIdx)); items[wmSearchIdx].scrollIntoView({block:'nearest'}); }
+  else if (e.key === 'Enter' && wmSearchIdx >= 0) { e.preventDefault(); wmSelectResult(wmSearchIdx); }
+  else if (e.key === 'Escape') { box.style.display = 'none'; wmSearchIdx = -1; }
 }
 
 function wmSelectResult(i) {
   const item = document.querySelectorAll('#wm-map-search-results .msr-item')[i];
+  if (!item) return;
   const lat = parseFloat(item.dataset.lat), lon = parseFloat(item.dataset.lon);
   document.getElementById('wm-loc-search').value = decodeURIComponent(item.dataset.name);
   document.getElementById('wm-map-search-results').style.display = 'none';
+  wmSearchIdx = -1;
   wmMap.setView([lat, lon], 16);
   wmPlacePin(lat, lon, false);
 }
@@ -1106,31 +1123,46 @@ function updateRadiusCircle() {
   if (locCircle) locCircle.setRadius(r);
 }
 
+let locSearchIdx = -1;
 function onMapSearch(q) {
   clearTimeout(searchTimer);
+  locSearchIdx = -1;
   const box = document.getElementById('map-search-results');
   if (q.length < 3) { box.style.display = 'none'; return; }
+  box.innerHTML = '<div class="msr-loading">Searching…</div>';
+  box.style.display = 'block';
   searchTimer = setTimeout(async () => {
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5`);
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=6&countrycodes=gb&addressdetails=1`);
       const results = await res.json();
-      if (!results.length) { box.style.display = 'none'; return; }
+      if (!results.length) { box.innerHTML = '<div class="msr-loading">No results found</div>'; return; }
       box.innerHTML = results.map((r, i) =>
         `<div class="msr-item" onclick="selectSearchResult(${i})" data-lat="${r.lat}" data-lon="${r.lon}" data-name="${encodeURIComponent(r.display_name)}">${r.display_name}</div>`
       ).join('');
-      box.style.display = 'block';
-    } catch {}
-  }, 400);
+    } catch { box.style.display = 'none'; }
+  }, 350);
+}
+
+function onMapSearchKey(e) {
+  const box = document.getElementById('map-search-results');
+  const items = box.querySelectorAll('.msr-item');
+  if (!items.length) return;
+  if (e.key === 'ArrowDown') { e.preventDefault(); locSearchIdx = Math.min(locSearchIdx + 1, items.length - 1); items.forEach((el, i) => el.classList.toggle('msr-item--active', i === locSearchIdx)); items[locSearchIdx].scrollIntoView({block:'nearest'}); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); locSearchIdx = Math.max(locSearchIdx - 1, 0); items.forEach((el, i) => el.classList.toggle('msr-item--active', i === locSearchIdx)); items[locSearchIdx].scrollIntoView({block:'nearest'}); }
+  else if (e.key === 'Enter' && locSearchIdx >= 0) { e.preventDefault(); selectSearchResult(locSearchIdx); }
+  else if (e.key === 'Escape') { box.style.display = 'none'; locSearchIdx = -1; }
 }
 
 function selectSearchResult(i) {
-  const item = document.querySelectorAll('.msr-item')[i];
+  const item = document.querySelectorAll('#map-search-results .msr-item')[i];
+  if (!item) return;
   const lat = parseFloat(item.dataset.lat);
   const lon = parseFloat(item.dataset.lon);
   const name = decodeURIComponent(item.dataset.name);
   document.getElementById('lm-search').value  = name;
   document.getElementById('lm-address').value = name;
   document.getElementById('map-search-results').style.display = 'none';
+  locSearchIdx = -1;
   locMap.setView([lat, lon], 16);
   placePin(lat, lon, false);
 }
@@ -1273,6 +1305,18 @@ function fmtDuration(ms) {
 // Close modals on backdrop click
 document.querySelectorAll('.modal-backdrop').forEach(b => {
   b.addEventListener('click', e => { if (e.target === b) b.classList.remove('open'); });
+});
+
+// Close address dropdowns when clicking outside
+document.addEventListener('click', e => {
+  if (!e.target.closest('#map-search-results') && e.target.id !== 'lm-search') {
+    const b = document.getElementById('map-search-results');
+    if (b) b.style.display = 'none';
+  }
+  if (!e.target.closest('#wm-map-search-results') && e.target.id !== 'wm-loc-search') {
+    const b = document.getElementById('wm-map-search-results');
+    if (b) b.style.display = 'none';
+  }
 });
 
 boot();
