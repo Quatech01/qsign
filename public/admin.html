@@ -311,7 +311,7 @@ tr:hover td{background:var(--faint)}
       </div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>Name</th><th>Staff ID</th><th>Email</th><th>Department</th><th>This Week</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Name</th><th>Staff ID</th><th>Email</th><th>Department</th><th>This Week</th><th>Pay Rate</th><th id="period-pay-header">Period Pay</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody id="workers-tbody"></tbody>
         </table>
       </div>
@@ -368,6 +368,14 @@ tr:hover td{background:var(--faint)}
           <input type="text" id="co-code" maxlength="10" style="width:100%;padding:.72rem 1rem;border:1.5px solid var(--border);border-radius:10px;font-size:.95rem;font-family:monospace;background:var(--panel);color:var(--text);outline:none;text-transform:uppercase" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')">
         </div>
         <p style="font-size:.72rem;color:var(--muted);margin-bottom:1.25rem">The company code is what workers type on the login screen. Changing it will require all workers to use the new code.</p>
+        <div class="field" style="margin-bottom:1.25rem">
+          <label style="font-size:.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:.35rem">Pay Period</label>
+          <select id="co-pay-period" style="width:100%;padding:.72rem 1rem;border:1.5px solid var(--border);border-radius:10px;font-size:.95rem;background:var(--panel);color:var(--text);outline:none">
+            <option value="monthly">Monthly</option>
+            <option value="weekly">Weekly</option>
+          </select>
+          <p style="font-size:.72rem;color:var(--muted);margin-top:.4rem">Controls whether payroll totals are calculated per week or per month.</p>
+        </div>
         <div style="display:flex;gap:.75rem">
           <button class="btn-sm btn-blue" style="padding:.5rem 1.25rem;font-size:.85rem" onclick="saveCompany()">Save Changes</button>
           <span id="co-ok" style="display:none;font-size:.82rem;color:var(--green);align-self:center">Saved ✓</span>
@@ -450,6 +458,13 @@ tr:hover td{background:var(--faint)}
           <label>Weekly Hours Target</label>
           <input type="number" id="wm-weekly-hours" placeholder="e.g. 40" min="0" max="168" step="0.5">
         </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Pay Rate (£ / hr)</label>
+          <input type="number" id="wm-pay-rate" placeholder="e.g. 12.50" min="0" step="0.01">
+        </div>
+        <div class="field"></div>
       </div>
       <div class="field-row">
         <div class="field">
@@ -599,6 +614,7 @@ async function boot() {
   if (TOKEN && USER?.role === 'admin') {
     try {
       const company = await api('GET', '/api/admin/company');
+      companyPayPeriod = company.pay_period || 'monthly';
       document.getElementById('login-overlay').style.display = 'none';
       document.getElementById('sb-user-name').textContent = USER.name;
       document.getElementById('sb-company-code').textContent = 'Code: ' + company.company_code;
@@ -806,16 +822,19 @@ async function loadWorkerList() {
 
 async function loadWorkers() {
   await loadWorkerList();
+  const hdr = document.getElementById('period-pay-header');
+  if (hdr) hdr.textContent = companyPayPeriod === 'weekly' ? 'Week Pay' : 'Month Pay';
   const tbody = document.getElementById('workers-tbody');
   tbody.innerHTML = workers.length
     ? workers.map(w => {
+        // -- Compliance badge (always vs weekly target) --
         const target  = parseFloat(w.weekly_hours) || 0;
         const worked  = parseFloat(w.week_hours_worked) || 0;
         let weekCell;
         if (!target) {
           weekCell = `<span style="font-size:.78rem;color:var(--muted)">—</span>`;
         } else {
-          const pct = worked / target;
+          const pct   = worked / target;
           const color = pct >= 1 ? '#16a34a' : pct >= 0.5 ? '#ca8a04' : '#dc2626';
           const bg    = pct >= 1 ? '#f0fdf4'  : pct >= 0.5 ? '#fefce8'  : '#fef2f2';
           const label = pct >= 1 ? '&#10003; Complete' : `${worked.toFixed(1)} / ${target}h`;
@@ -823,17 +842,35 @@ async function loadWorkers() {
             <span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></span>${label}
           </span>`;
         }
+        // -- Pay Rate --
+        const rate = parseFloat(w.pay_rate);
+        const rateCell = rate
+          ? `<span style="font-size:.82rem;font-weight:600;color:var(--text)">£${rate.toFixed(2)}<span style="font-size:.7rem;font-weight:400;color:var(--muted)">/hr</span></span>`
+          : `<span style="font-size:.78rem;color:var(--muted)">—</span>`;
+        // -- Period Pay --
+        const periodHrs = parseFloat(w.period_hours_worked) || 0;
+        const periodPay = parseFloat(w.period_pay) || 0;
+        const periodLabel = companyPayPeriod === 'weekly' ? 'This Week' : 'This Month';
+        let payCell;
+        if (!rate) {
+          payCell = `<span style="font-size:.78rem;color:var(--muted)">—</span>`;
+        } else {
+          payCell = `<span style="font-size:.82rem;font-weight:700;color:#0f5a2e">£${periodPay.toFixed(2)}</span>
+            <span style="font-size:.7rem;color:var(--muted);display:block">${periodHrs.toFixed(1)}h · ${periodLabel}</span>`;
+        }
         return `<tr>
           <td><strong>${w.name}</strong></td>
           <td><span style="font-family:monospace;font-size:.8rem;background:var(--blue-lt);color:var(--blue);padding:.1rem .4rem;border-radius:4px">${w.staff_id || '—'}</span></td>
           <td>${w.email}</td>
           <td>${w.department || '—'}</td>
           <td>${weekCell}</td>
+          <td>${rateCell}</td>
+          <td>${payCell}</td>
           <td>${w.active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-red">Deactivated</span>'}</td>
           <td><button class="btn-sm btn-outline" onclick="openWorkerModal(${JSON.stringify(w).replace(/"/g,'&quot;')})">Edit</button></td>
         </tr>`;
       }).join('')
-    : '<tr class="empty-row"><td colspan="8">No workers yet</td></tr>';
+    : '<tr class="empty-row"><td colspan="10">No workers yet</td></tr>';
 }
 
 // ── Worker modal — location tab ───────────────────────────────────────────────
@@ -929,6 +966,7 @@ async function openWorkerModal(w = null) {
   document.getElementById('wm-dept').value         = w?.department || '';
   document.getElementById('wm-phone').value        = w?.phone || '';
   document.getElementById('wm-weekly-hours').value = w?.weekly_hours || '';
+  document.getElementById('wm-pay-rate').value     = w?.pay_rate || '';
   document.getElementById('wm-role').value     = w?.role || 'worker';
   document.getElementById('wm-pass').value     = '';
   document.getElementById('wm-pass').placeholder = w ? 'Leave blank to keep current' : 'Min 6 characters';
@@ -992,7 +1030,8 @@ async function saveWorker() {
 
   try {
     const weeklyHours = parseFloat(document.getElementById('wm-weekly-hours').value) || null;
-  const body = { name, email, staff_id, department: dept||null, phone: phone||null, role, location_id, weekly_hours: weeklyHours, ...(password && {password}), ...(workerId && {active}) };
+  const payRate     = parseFloat(document.getElementById('wm-pay-rate').value) || null;
+  const body = { name, email, staff_id, department: dept||null, phone: phone||null, role, location_id, weekly_hours: weeklyHours, pay_rate: payRate, ...(password && {password}), ...(workerId && {active}) };
     if (workerId) await api('PUT', `/api/admin/workers/${workerId}`, body);
     else          await api('POST', '/api/admin/workers', body);
     closeModal('worker-modal');
@@ -1174,11 +1213,15 @@ async function loadReports() {
 }
 
 // ── Company Settings ──────────────────────────────────────────────────────────
+let companyPayPeriod = 'monthly';
+
 async function loadCompany() {
   try {
     const c = await api('GET', '/api/admin/company');
     document.getElementById('co-name').value = c.name || '';
     document.getElementById('co-code').value = c.company_code || '';
+    document.getElementById('co-pay-period').value = c.pay_period || 'monthly';
+    companyPayPeriod = c.pay_period || 'monthly';
     document.getElementById('co-err').style.display = 'none';
     document.getElementById('co-ok').style.display = 'none';
   } catch (e) { showErr(document.getElementById('co-err'), e.message || 'Failed to load'); }
@@ -1187,13 +1230,15 @@ async function loadCompany() {
 async function saveCompany() {
   const name         = document.getElementById('co-name').value.trim();
   const company_code = document.getElementById('co-code').value.trim();
+  const pay_period   = document.getElementById('co-pay-period').value;
   const errEl        = document.getElementById('co-err');
   const okEl         = document.getElementById('co-ok');
   errEl.style.display = 'none'; okEl.style.display = 'none';
   if (!name || !company_code) { showErr(errEl, 'Both fields are required'); return; }
   if (company_code.length < 3) { showErr(errEl, 'Code must be at least 3 characters'); return; }
   try {
-    const c = await api('PUT', '/api/admin/company', { name, company_code });
+    const c = await api('PUT', '/api/admin/company', { name, company_code, pay_period });
+    companyPayPeriod = c.pay_period || 'monthly';
     document.getElementById('sb-company-code').textContent = 'Code: ' + c.company_code;
     okEl.style.display = 'inline';
   } catch (e) { showErr(errEl, e.message || 'Save failed'); }

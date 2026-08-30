@@ -10,7 +10,7 @@ router.use(requireAdmin);
 router.get('/company', async (req, res) => {
   try {
     const { rows: [c] } = await pool.query(
-      "SELECT id, name, company_code, created_at FROM companies WHERE id = $1",
+      "SELECT id, name, company_code, pay_period, created_at FROM companies WHERE id = $1",
       [req.user.company_id]
     );
     if (!c) return res.status(404).json({ error: 'Company not found' });
@@ -20,14 +20,18 @@ router.get('/company', async (req, res) => {
 
 // PUT /api/admin/company
 router.put('/company', async (req, res) => {
-  const { name, company_code } = req.body || {};
+  const { name, company_code, pay_period } = req.body || {};
+  if (pay_period && !['weekly', 'monthly'].includes(pay_period))
+    return res.status(400).json({ error: 'pay_period must be weekly or monthly' });
   try {
     const { rows: [c] } = await pool.query(
       `UPDATE companies SET
          name         = COALESCE($1, name),
-         company_code = COALESCE($2, company_code)
-       WHERE id = $3 RETURNING id, name, company_code`,
-      [name || null, company_code ? company_code.toUpperCase().replace(/[^A-Z0-9]/g, '') : null, req.user.company_id]
+         company_code = COALESCE($2, company_code),
+         pay_period   = COALESCE($3, pay_period)
+       WHERE id = $4 RETURNING id, name, company_code, pay_period`,
+      [name || null, company_code ? company_code.toUpperCase().replace(/[^A-Z0-9]/g, '') : null,
+       pay_period || null, req.user.company_id]
     );
     res.json(c);
   } catch (err) {
@@ -176,26 +180,53 @@ router.get('/workers', async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT u.id, u.name, u.email, u.role, u.department, u.phone, u.active, u.created_at,
-              u.staff_id, u.location_id, u.weekly_hours, wl.name AS location_name,
-              COALESCE(
-                SUM(
-                  CASE
-                    WHEN a.check_out_time IS NOT NULL THEN a.hours_worked
-                    WHEN a.check_in_time >= date_trunc('week', NOW()) THEN
-                      EXTRACT(EPOCH FROM (NOW() - a.check_in_time)) / 3600
-                    ELSE 0
-                  END
-                ), 0
-              )::numeric(6,2) AS week_hours_worked
+              u.staff_id, u.location_id, u.weekly_hours, u.pay_rate,
+              wl.name AS location_name, c.pay_period,
+
+              -- Compliance: always this Mon–Sun
+              COALESCE(SUM(
+                CASE WHEN a.check_in_time >= date_trunc('week', NOW()) THEN
+                  CASE WHEN a.check_out_time IS NOT NULL THEN a.hours_worked
+                       ELSE EXTRACT(EPOCH FROM (NOW() - a.check_in_time)) / 3600 END
+                ELSE 0 END
+              ), 0)::numeric(6,2) AS week_hours_worked,
+
+              -- Payroll: this week or this month depending on company pay_period
+              COALESCE(SUM(
+                CASE WHEN a.check_in_time >= (
+                  CASE WHEN c.pay_period = 'weekly'
+                    THEN date_trunc('week', NOW())
+                    ELSE date_trunc('month', NOW()) END
+                ) THEN
+                  CASE WHEN a.check_out_time IS NOT NULL THEN a.hours_worked
+                       ELSE EXTRACT(EPOCH FROM (NOW() - a.check_in_time)) / 3600 END
+                ELSE 0 END
+              ), 0)::numeric(6,2) AS period_hours_worked,
+
+              -- Period pay = period_hours × pay_rate
+              ROUND(
+                COALESCE(SUM(
+                  CASE WHEN a.check_in_time >= (
+                    CASE WHEN c.pay_period = 'weekly'
+                      THEN date_trunc('week', NOW())
+                      ELSE date_trunc('month', NOW()) END
+                  ) THEN
+                    CASE WHEN a.check_out_time IS NOT NULL THEN a.hours_worked
+                         ELSE EXTRACT(EPOCH FROM (NOW() - a.check_in_time)) / 3600 END
+                  ELSE 0 END
+                ), 0) * COALESCE(u.pay_rate, 0)
+              , 2)::numeric(10,2) AS period_pay
+
        FROM users u
+       JOIN companies c ON c.id = u.company_id
        LEFT JOIN work_locations wl ON wl.id = u.location_id
        LEFT JOIN attendance a
          ON a.user_id = u.id
-         AND a.check_in_time >= date_trunc('week', NOW())
-         AND a.check_in_time <  date_trunc('week', NOW()) + interval '7 days'
+         AND a.check_in_time >= date_trunc('month', NOW())
        WHERE u.company_id = $1
        GROUP BY u.id, u.name, u.email, u.role, u.department, u.phone, u.active,
-                u.created_at, u.staff_id, u.location_id, u.weekly_hours, wl.name
+                u.created_at, u.staff_id, u.location_id, u.weekly_hours, u.pay_rate,
+                wl.name, c.pay_period
        ORDER BY u.name`,
       [cid]
     );
@@ -206,19 +237,20 @@ router.get('/workers', async (req, res) => {
 // POST /api/admin/workers
 router.post('/workers', async (req, res) => {
   const cid = req.user.company_id;
-  const { name, email, password, role = 'worker', department, phone, location_id, staff_id, weekly_hours } = req.body || {};
+  const { name, email, password, role = 'worker', department, phone, location_id, staff_id, weekly_hours, pay_rate } = req.body || {};
   if (!name || !email || !password) return res.status(400).json({ error: 'name, email, password required' });
   if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
   if (!['worker', 'admin'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
   try {
     const hash = await bcrypt.hash(password, 12);
     const { rows: [u] } = await pool.query(
-      `INSERT INTO users (name,email,password_hash,role,department,phone,location_id,company_id,staff_id,weekly_hours)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-       RETURNING id,name,email,role,department,phone,active,location_id,staff_id,weekly_hours,created_at`,
+      `INSERT INTO users (name,email,password_hash,role,department,phone,location_id,company_id,staff_id,weekly_hours,pay_rate)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       RETURNING id,name,email,role,department,phone,active,location_id,staff_id,weekly_hours,pay_rate,created_at`,
       [name.trim(), email.toLowerCase().trim(), hash, role,
        department || null, phone || null, location_id || null, cid, staff_id || null,
-       weekly_hours ? parseFloat(weekly_hours) : null]
+       weekly_hours ? parseFloat(weekly_hours) : null,
+       pay_rate ? parseFloat(pay_rate) : null]
     );
     res.status(201).json(u);
   } catch (err) {
@@ -233,7 +265,7 @@ router.post('/workers', async (req, res) => {
 // PUT /api/admin/workers/:id
 router.put('/workers/:id', async (req, res) => {
   const cid = req.user.company_id;
-  const { name, email, department, phone, active, password, location_id, staff_id, weekly_hours } = req.body || {};
+  const { name, email, department, phone, active, password, location_id, staff_id, weekly_hours, pay_rate } = req.body || {};
   try {
     let hash = null;
     if (password) {
@@ -250,12 +282,14 @@ router.put('/workers/:id', async (req, res) => {
          password_hash = COALESCE($6, password_hash),
          location_id   = $7,
          staff_id      = $8,
-         weekly_hours  = COALESCE($9, weekly_hours)
-       WHERE id=$10 AND company_id=$11
-       RETURNING id,name,email,role,department,phone,active,location_id,staff_id,weekly_hours`,
+         weekly_hours  = COALESCE($9, weekly_hours),
+         pay_rate      = COALESCE($10, pay_rate)
+       WHERE id=$11 AND company_id=$12
+       RETURNING id,name,email,role,department,phone,active,location_id,staff_id,weekly_hours,pay_rate`,
       [name || null, email || null, department || null, phone || null,
        active ?? null, hash, location_id || null, staff_id || null,
        weekly_hours != null ? parseFloat(weekly_hours) : null,
+       pay_rate != null ? parseFloat(pay_rate) : null,
        req.params.id, cid]
     );
     if (!u) return res.status(404).json({ error: 'Worker not found' });
