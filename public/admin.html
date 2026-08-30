@@ -213,6 +213,10 @@ tr:hover td{background:var(--faint)}
       <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
       Reports
     </button>
+    <button class="sb-item" id="nav-company" onclick="showTab('company')">
+      <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Company Settings
+    </button>
   </nav>
   <div class="sb-footer">
     <div id="sb-user-name" style="font-weight:700;margin-bottom:.15rem"></div>
@@ -345,6 +349,29 @@ tr:hover td{background:var(--faint)}
           <thead><tr><th>Worker</th><th>Department</th><th>Shifts</th><th>Total Hours</th><th>Open Shifts</th><th>Progress</th></tr></thead>
           <tbody id="rpt-tbody"></tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPANY SETTINGS -->
+  <div class="tab-pane" id="tab-company">
+    <div class="section" style="max-width:520px">
+      <div class="section-head"><span class="section-title">Company Settings</span></div>
+      <div style="padding:1.25rem">
+        <div class="err-box" id="co-err" style="margin-bottom:.75rem"></div>
+        <div class="field" style="margin-bottom:.85rem">
+          <label style="font-size:.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:.35rem">Company Name</label>
+          <input type="text" id="co-name" style="width:100%;padding:.72rem 1rem;border:1.5px solid var(--border);border-radius:10px;font-size:.95rem;background:var(--panel);color:var(--text);outline:none" placeholder="e.g. University of Liverpool">
+        </div>
+        <div class="field" style="margin-bottom:.5rem">
+          <label style="font-size:.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:.35rem">Company Code</label>
+          <input type="text" id="co-code" maxlength="10" style="width:100%;padding:.72rem 1rem;border:1.5px solid var(--border);border-radius:10px;font-size:.95rem;font-family:monospace;background:var(--panel);color:var(--text);outline:none;text-transform:uppercase" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')">
+        </div>
+        <p style="font-size:.72rem;color:var(--muted);margin-bottom:1.25rem">The company code is what workers type on the login screen. Changing it will require all workers to use the new code.</p>
+        <div style="display:flex;gap:.75rem">
+          <button class="btn-sm btn-blue" style="padding:.5rem 1.25rem;font-size:.85rem" onclick="saveCompany()">Save Changes</button>
+          <span id="co-ok" style="display:none;font-size:.82rem;color:var(--green);align-self:center">Saved ✓</span>
+        </div>
       </div>
     </div>
   </div>
@@ -561,7 +588,7 @@ let workers  = [];
 
 const TITLES = {
   dashboard:'Dashboard', live:'Live Attendance', records:'All Records',
-  workers:'Workers', locations:'Locations', reports:'Reports'
+  workers:'Workers', locations:'Locations', reports:'Reports', company:'Company Settings'
 };
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
@@ -631,6 +658,7 @@ function showTab(name) {
   if (name === 'workers')   loadWorkers();
   if (name === 'locations') loadLocations();
   if (name === 'reports')   loadReports();
+  if (name === 'company')   loadCompany();
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
@@ -1121,6 +1149,32 @@ async function loadReports() {
         }).join('')
       : '<tr class="empty-row"><td colspan="6">No data</td></tr>';
   } catch {}
+}
+
+// ── Company Settings ──────────────────────────────────────────────────────────
+async function loadCompany() {
+  try {
+    const c = await api('GET', '/api/admin/company');
+    document.getElementById('co-name').value = c.name || '';
+    document.getElementById('co-code').value = c.company_code || '';
+    document.getElementById('co-err').style.display = 'none';
+    document.getElementById('co-ok').style.display = 'none';
+  } catch (e) { showErr(document.getElementById('co-err'), e.message || 'Failed to load'); }
+}
+
+async function saveCompany() {
+  const name         = document.getElementById('co-name').value.trim();
+  const company_code = document.getElementById('co-code').value.trim();
+  const errEl        = document.getElementById('co-err');
+  const okEl         = document.getElementById('co-ok');
+  errEl.style.display = 'none'; okEl.style.display = 'none';
+  if (!name || !company_code) { showErr(errEl, 'Both fields are required'); return; }
+  if (company_code.length < 3) { showErr(errEl, 'Code must be at least 3 characters'); return; }
+  try {
+    const c = await api('PUT', '/api/admin/company', { name, company_code });
+    document.getElementById('sb-company-code').textContent = 'Code: ' + c.company_code;
+    okEl.style.display = 'inline';
+  } catch (e) { showErr(errEl, e.message || 'Save failed'); }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
