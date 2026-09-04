@@ -160,6 +160,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
         <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
       </div>
       <button class="btn btn-blue" id="login-btn" onclick="doLogin()">Sign In</button>
+      <p style="text-align:center;margin:.3rem 0 0"><button type="button" onclick="showForgot()" style="background:none;border:none;color:var(--blue);font-size:.8rem;cursor:pointer;padding:0;font-family:inherit">Forgot password?</button></p>
       <!-- Fingerprint login -->
       <div id="fp-wrap" style="display:none;margin-top:.4rem">
         <div style="display:flex;align-items:center;gap:.5rem;margin:.1rem 0 .45rem">
@@ -185,7 +186,53 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
         <button class="btn" style="background:var(--border);color:var(--text)" onclick="cancelTotp()">Back</button>
       </div>
     </div>
-    <p style="font-size:.73rem;color:var(--muted);text-align:center">Don't have an account? Contact your administrator.</p>
+    <!-- ── Forgot password panel ────────────────────────────── -->
+    <div id="forgot-panel" style="display:none;flex-direction:column;gap:.75rem">
+      <button type="button" onclick="hideForgot()" style="background:none;border:none;color:var(--muted);font-size:.8rem;cursor:pointer;padding:0;text-align:left;font-family:inherit;display:flex;align-items:center;gap:.3rem">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to sign in
+      </button>
+      <div style="font-weight:700;font-size:1rem;color:var(--text)">Reset password</div>
+
+      <!-- Step 1: request code -->
+      <div id="forgot-step1">
+        <p style="font-size:.82rem;color:var(--muted);margin:0 0 .75rem">Enter your company code and email — we'll send a 6-digit reset code.</p>
+        <div class="err-box" id="forgot-err" style="margin-bottom:.5rem"></div>
+        <div class="field" style="margin-bottom:.5rem">
+          <label>Company Code</label>
+          <input type="text" id="forgot-code" placeholder="e.g. UNILIV" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+        </div>
+        <div class="field" style="margin-bottom:.75rem">
+          <label>Email</label>
+          <input type="email" id="forgot-email" placeholder="you@company.com" autocomplete="email" inputmode="email">
+        </div>
+        <button class="btn btn-blue" id="forgot-send-btn" onclick="doForgotSend()">Send reset code</button>
+      </div>
+
+      <!-- Step 2: verify code + new password -->
+      <div id="forgot-step2" style="display:none;flex-direction:column;gap:.65rem">
+        <div style="padding:.65rem .85rem;background:var(--blue-lt);border-radius:9px;font-size:.82rem;color:var(--blue)">
+          📧 A 6-digit code was sent to your email. Enter it below.
+        </div>
+        <div class="err-box" id="forgot-err2"></div>
+        <div class="field">
+          <label>Reset code</label>
+          <input type="text" id="forgot-otp" placeholder="000000" inputmode="numeric" maxlength="6" autocomplete="one-time-code" style="letter-spacing:.3em;font-size:1.4rem;text-align:center">
+        </div>
+        <div class="field">
+          <label>New password</label>
+          <input type="password" id="forgot-newpass" placeholder="Min 6 characters" autocomplete="new-password">
+        </div>
+        <div class="field">
+          <label>Confirm password</label>
+          <input type="password" id="forgot-confirmpass" placeholder="Repeat password" autocomplete="new-password">
+        </div>
+        <button class="btn btn-blue" id="forgot-reset-btn" onclick="doForgotReset()">Reset password</button>
+        <button type="button" class="btn" style="background:var(--border);color:var(--text)" onclick="doForgotSend(true)">Resend code</button>
+      </div>
+    </div>
+
+    <p style="font-size:.73rem;color:var(--muted);text-align:center" id="no-account-msg">Don't have an account? Contact your administrator.</p>
   </div>
 </div>
 
@@ -382,6 +429,97 @@ function showApp() {
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 let _pendingLogin = null;
+
+// ── Forgot / reset password ───────────────────────────────────────────────────
+function showForgot() {
+  document.getElementById('login-form') && (document.getElementById('login-form').style.display = 'none');
+  document.querySelector('.login-form').style.display = 'none';
+  document.getElementById('forgot-panel').style.display = 'flex';
+  document.getElementById('no-account-msg').style.display = 'none';
+  // Pre-fill from login fields
+  const code = document.getElementById('login-code').value.trim();
+  const em   = document.getElementById('login-email').value.trim();
+  if (code) document.getElementById('forgot-code').value = code;
+  if (em && em.includes('@')) document.getElementById('forgot-email').value = em;
+}
+
+function hideForgot() {
+  document.querySelector('.login-form').style.display = 'flex';
+  document.getElementById('forgot-panel').style.display = 'none';
+  document.getElementById('no-account-msg').style.display = '';
+  // reset panel state
+  document.getElementById('forgot-step1').style.display = '';
+  document.getElementById('forgot-step2').style.display = 'none';
+  document.getElementById('forgot-err').style.display = 'none';
+  document.getElementById('forgot-err2').style.display = 'none';
+}
+
+async function doForgotSend(resend) {
+  const code  = document.getElementById('forgot-code').value.trim();
+  const email = document.getElementById('forgot-email').value.trim();
+  const errEl = document.getElementById('forgot-err');
+  errEl.style.display = 'none';
+  if (!code || !email) { showErr(errEl, 'Enter your company code and email'); return; }
+
+  const btn = document.getElementById('forgot-send-btn');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    await api('POST', '/api/auth/forgot', { company_code: code, email }, false);
+    document.getElementById('forgot-step1').style.display = 'none';
+    document.getElementById('forgot-step2').style.display = 'flex';
+    document.getElementById('forgot-otp').value = '';
+    document.getElementById('forgot-newpass').value = '';
+    document.getElementById('forgot-confirmpass').value = '';
+    document.getElementById('forgot-otp').focus();
+    if (resend) {
+      const e2 = document.getElementById('forgot-err2');
+      e2.textContent = '✓ New code sent — check your inbox';
+      e2.style.background = 'var(--green-lt)'; e2.style.color = 'var(--green)'; e2.style.display = 'block';
+    }
+  } catch (e) {
+    showErr(errEl, e.message || 'Failed to send code');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Send reset code';
+  }
+}
+
+async function doForgotReset() {
+  const code      = document.getElementById('forgot-code').value.trim();
+  const email     = document.getElementById('forgot-email').value.trim();
+  const otp       = document.getElementById('forgot-otp').value.trim();
+  const newPass   = document.getElementById('forgot-newpass').value;
+  const confirm   = document.getElementById('forgot-confirmpass').value;
+  const errEl     = document.getElementById('forgot-err2');
+  errEl.style.display = 'none';
+
+  if (!otp)     { showErr(errEl, 'Enter the 6-digit code from your email'); return; }
+  if (!newPass) { showErr(errEl, 'Enter a new password'); return; }
+  if (newPass.length < 6) { showErr(errEl, 'Password must be at least 6 characters'); return; }
+  if (newPass !== confirm) { showErr(errEl, 'Passwords do not match'); return; }
+
+  const btn = document.getElementById('forgot-reset-btn');
+  btn.disabled = true; btn.textContent = 'Resetting…';
+  try {
+    const r = await api('POST', '/api/auth/reset', {
+      company_code: code, email, code: otp, new_password: newPass,
+    }, false);
+    // Success — show message then return to login
+    errEl.style.display = 'none';
+    btn.textContent = '✓ ' + (r.message || 'Password updated');
+    btn.style.background = 'var(--green)';
+    setTimeout(() => {
+      hideForgot();
+      btn.style.background = '';
+      btn.textContent = 'Reset password';
+      document.getElementById('login-email').value = email;
+      document.getElementById('login-pass').value = '';
+      document.getElementById('login-pass').focus();
+    }, 2000);
+  } catch (e) {
+    showErr(errEl, e.message || 'Reset failed');
+    btn.disabled = false; btn.textContent = 'Reset password';
+  }
+}
 
 async function doLogin() {
   const company_code = document.getElementById('login-code').value.trim();

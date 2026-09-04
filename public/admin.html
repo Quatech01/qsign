@@ -179,6 +179,7 @@ tr:hover td{background:var(--faint)}
       <input type="password" id="adm-pass" placeholder="••••••••" autocomplete="current-password">
     </div>
     <button class="btn-full" id="adm-login-btn" onclick="doAdminLogin()">Sign In</button>
+    <p style="text-align:center;margin:.4rem 0 0"><button type="button" onclick="showAdminForgot()" style="background:none;border:none;color:var(--blue);font-size:.8rem;cursor:pointer;padding:0;font-family:inherit">Forgot password?</button></p>
     <!-- Fingerprint login -->
     <div id="adm-fp-wrap" style="display:none;margin-top:.5rem">
       <div style="display:flex;align-items:center;gap:.5rem;margin:.1rem 0 .5rem">
@@ -203,7 +204,53 @@ tr:hover td{background:var(--faint)}
       <button class="btn-full" onclick="doAdminTotpVerify()" style="margin-bottom:.5rem">Verify</button>
       <button class="btn-full" onclick="cancelAdminTotp()" style="background:var(--border);color:var(--text)">Back</button>
     </div>
-    <p style="font-size:.72rem;color:var(--muted);text-align:center">Worker? <a href="/" style="color:var(--blue)">Go to app →</a></p>
+    <!-- ── Forgot password panel ──────────────────────────── -->
+    <div id="adm-forgot-panel" style="display:none">
+      <button type="button" onclick="hideAdminForgot()" style="background:none;border:none;color:var(--muted);font-size:.8rem;cursor:pointer;padding:0 0 .75rem;font-family:inherit;display:flex;align-items:center;gap:.3rem">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to sign in
+      </button>
+      <div style="font-weight:700;font-size:1rem;color:var(--text);margin-bottom:.65rem">Reset password</div>
+
+      <!-- Step 1 -->
+      <div id="adm-forgot-step1">
+        <p style="font-size:.82rem;color:var(--muted);margin:0 0 .75rem">Enter your company code and email — we'll send a 6-digit reset code.</p>
+        <div class="err-box" id="adm-forgot-err" style="margin-bottom:.5rem"></div>
+        <div class="field" style="margin-bottom:.5rem">
+          <label>Company Code</label>
+          <input type="text" id="adm-forgot-code" placeholder="e.g. UNILIV" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+        </div>
+        <div class="field" style="margin-bottom:.75rem">
+          <label>Email</label>
+          <input type="email" id="adm-forgot-email" placeholder="admin@company.com" autocomplete="email" inputmode="email">
+        </div>
+        <button class="btn-full" id="adm-forgot-send-btn" onclick="doAdminForgotSend()">Send reset code</button>
+      </div>
+
+      <!-- Step 2 -->
+      <div id="adm-forgot-step2" style="display:none">
+        <div style="padding:.65rem .85rem;background:#eff6ff;border-radius:9px;font-size:.82rem;color:#1d4ed8;margin-bottom:.75rem">
+          📧 A 6-digit code was sent to your email. Enter it below.
+        </div>
+        <div class="err-box" id="adm-forgot-err2" style="margin-bottom:.5rem"></div>
+        <div class="field" style="margin-bottom:.5rem">
+          <label>Reset code</label>
+          <input type="text" id="adm-forgot-otp" placeholder="000000" inputmode="numeric" maxlength="6" autocomplete="one-time-code" style="letter-spacing:.3em;font-size:1.4rem;text-align:center">
+        </div>
+        <div class="field" style="margin-bottom:.5rem">
+          <label>New password</label>
+          <input type="password" id="adm-forgot-newpass" placeholder="Min 6 characters" autocomplete="new-password">
+        </div>
+        <div class="field" style="margin-bottom:.75rem">
+          <label>Confirm password</label>
+          <input type="password" id="adm-forgot-confirmpass" placeholder="Repeat password" autocomplete="new-password">
+        </div>
+        <button class="btn-full" id="adm-forgot-reset-btn" onclick="doAdminForgotReset()" style="margin-bottom:.5rem">Reset password</button>
+        <button type="button" class="btn-full" onclick="doAdminForgotSend(true)" style="background:var(--border);color:var(--text)">Resend code</button>
+      </div>
+    </div>
+
+    <p style="font-size:.72rem;color:var(--muted);text-align:center" id="adm-worker-link">Worker? <a href="/" style="color:var(--blue)">Go to app →</a></p>
   </div>
 </div>
 
@@ -732,6 +779,99 @@ function setDefaultDates() {
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 let _admPending = null;
+
+// ── Admin forgot / reset password ────────────────────────────────────────────
+function _admLoginFields() {
+  return ['adm-code','adm-email','adm-pass','adm-login-btn','adm-fp-wrap'];
+}
+function showAdminForgot() {
+  _admLoginFields().forEach(id => {
+    const el = document.getElementById(id); if (el) el.style.display = 'none';
+  });
+  document.getElementById('adm-forgot-panel').style.display = '';
+  document.getElementById('adm-worker-link').style.display = 'none';
+  // Pre-fill from login fields
+  const code = document.getElementById('adm-code').value.trim();
+  const em   = document.getElementById('adm-email').value.trim();
+  if (code) document.getElementById('adm-forgot-code').value = code;
+  if (em)   document.getElementById('adm-forgot-email').value = em;
+}
+function hideAdminForgot() {
+  _admLoginFields().forEach(id => {
+    const el = document.getElementById(id); if (el) el.style.display = '';
+  });
+  document.getElementById('adm-forgot-panel').style.display = 'none';
+  document.getElementById('adm-worker-link').style.display = '';
+  // Reset inner state
+  document.getElementById('adm-forgot-step1').style.display = '';
+  document.getElementById('adm-forgot-step2').style.display = 'none';
+  document.getElementById('adm-forgot-err').style.display = 'none';
+  document.getElementById('adm-forgot-err2').style.display = 'none';
+}
+async function doAdminForgotSend(resend) {
+  const code  = document.getElementById('adm-forgot-code').value.trim();
+  const email = document.getElementById('adm-forgot-email').value.trim();
+  const errEl = document.getElementById('adm-forgot-err');
+  errEl.style.display = 'none';
+  if (!code || !email) { showErr(errEl, 'Enter your company code and email'); return; }
+
+  const btn = document.getElementById('adm-forgot-send-btn');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    await api('POST', '/api/auth/forgot', { company_code: code, email }, false);
+    document.getElementById('adm-forgot-step1').style.display = 'none';
+    document.getElementById('adm-forgot-step2').style.display = '';
+    document.getElementById('adm-forgot-otp').value = '';
+    document.getElementById('adm-forgot-newpass').value = '';
+    document.getElementById('adm-forgot-confirmpass').value = '';
+    document.getElementById('adm-forgot-otp').focus();
+    if (resend) {
+      const e2 = document.getElementById('adm-forgot-err2');
+      e2.textContent = '✓ New code sent — check your inbox';
+      e2.style.background = 'var(--green-lt,#dcfce7)'; e2.style.color = 'var(--green,#16a34a)'; e2.style.display = 'block';
+    }
+  } catch (e) {
+    showErr(errEl, e.message || 'Failed to send code');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Send reset code';
+  }
+}
+async function doAdminForgotReset() {
+  const code    = document.getElementById('adm-forgot-code').value.trim();
+  const email   = document.getElementById('adm-forgot-email').value.trim();
+  const otp     = document.getElementById('adm-forgot-otp').value.trim();
+  const newPass = document.getElementById('adm-forgot-newpass').value;
+  const confirm = document.getElementById('adm-forgot-confirmpass').value;
+  const errEl   = document.getElementById('adm-forgot-err2');
+  errEl.style.display = 'none';
+
+  if (!otp)    { showErr(errEl, 'Enter the 6-digit code from your email'); return; }
+  if (!newPass) { showErr(errEl, 'Enter a new password'); return; }
+  if (newPass.length < 6) { showErr(errEl, 'Password must be at least 6 characters'); return; }
+  if (newPass !== confirm) { showErr(errEl, 'Passwords do not match'); return; }
+
+  const btn = document.getElementById('adm-forgot-reset-btn');
+  btn.disabled = true; btn.textContent = 'Resetting…';
+  try {
+    const r = await api('POST', '/api/auth/reset', {
+      company_code: code, email, code: otp, new_password: newPass,
+    }, false);
+    errEl.style.display = 'none';
+    btn.textContent = '✓ ' + (r.message || 'Password updated');
+    btn.style.background = 'var(--green,#16a34a)';
+    setTimeout(() => {
+      hideAdminForgot();
+      btn.style.background = '';
+      btn.textContent = 'Reset password';
+      document.getElementById('adm-email').value = email;
+      document.getElementById('adm-pass').value = '';
+      document.getElementById('adm-pass').focus();
+    }, 2000);
+  } catch (e) {
+    showErr(errEl, e.message || 'Reset failed');
+    btn.disabled = false; btn.textContent = 'Reset password';
+  }
+}
 
 async function doAdminLogin() {
   const company_code = document.getElementById('adm-code').value.trim();
