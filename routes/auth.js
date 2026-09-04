@@ -1,11 +1,12 @@
 'use strict';
-const router  = require('express').Router();
-const bcrypt  = require('bcryptjs');
-const pool    = require('../lib/db');
+const router    = require('express').Router();
+const bcrypt    = require('bcryptjs');
+const speakeasy = require('speakeasy');
+const pool      = require('../lib/db');
 const { generateToken, requireAuth } = require('../lib/auth');
 
 router.post('/login', async (req, res) => {
-  const { company_code, email, staff_id, password } = req.body || {};
+  const { company_code, email, staff_id, password, totp_code } = req.body || {};
   const identifier = (email || staff_id || '').trim();
   if (!company_code || !identifier || !password)
     return res.status(400).json({ error: 'Company code, email/staff ID, and password required' });
@@ -28,6 +29,16 @@ router.post('/login', async (req, res) => {
 
     const ok = await bcrypt.compare(password, u.password_hash);
     if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
+
+    // 2FA check
+    if (u.totp_enabled) {
+      if (!totp_code) return res.status(200).json({ totp_required: true });
+      const totpOk = speakeasy.totp.verify({
+        secret: u.totp_secret, encoding: 'base32',
+        token: String(totp_code).replace(/\s/g, ''), window: 1,
+      });
+      if (!totpOk) return res.status(401).json({ error: 'Invalid authenticator code' });
+    }
 
     const token = generateToken({ sub: u.id, role: u.role, name: u.name, company_id: company.id });
     res.json({

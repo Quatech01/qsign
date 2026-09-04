@@ -160,6 +160,18 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
         <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
       </div>
       <button class="btn btn-blue" id="login-btn" onclick="doLogin()">Sign In</button>
+      <!-- 2FA step (hidden until totp_required) -->
+      <div id="totp-step" style="display:none;flex-direction:column;gap:.75rem">
+        <div style="text-align:center;padding:.75rem;background:var(--blue-lt);border-radius:10px;font-size:.85rem;color:var(--blue)">
+          🔐 Open <strong>Q-Authenticator</strong> and enter the 6-digit code for <strong>QSign</strong>
+        </div>
+        <div class="field">
+          <label>Authenticator Code</label>
+          <input type="text" id="login-totp" placeholder="000000" inputmode="numeric" maxlength="6" autocomplete="one-time-code" style="letter-spacing:.3em;font-size:1.4rem;text-align:center">
+        </div>
+        <button class="btn btn-blue" onclick="doTotpVerify()">Verify</button>
+        <button class="btn" style="background:var(--border);color:var(--text)" onclick="cancelTotp()">Back</button>
+      </div>
     </div>
     <p style="font-size:.73rem;color:var(--muted);text-align:center">Don't have an account? Contact your administrator.</p>
   </div>
@@ -304,6 +316,8 @@ function showApp() {
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
+let _pendingLogin = null;
+
 async function doLogin() {
   const company_code = document.getElementById('login-code').value.trim();
   const identifier   = document.getElementById('login-email').value.trim();
@@ -315,6 +329,13 @@ async function doLogin() {
   setLoading(true);
   try {
     const r = await api('POST', '/api/auth/login', { company_code, email: identifier, password }, false);
+    if (r.totp_required) {
+      _pendingLogin = { company_code, email: identifier, password };
+      document.getElementById('totp-step').style.display = 'flex';
+      document.getElementById('login-btn').style.display = 'none';
+      document.getElementById('login-totp').focus();
+      return;
+    }
     TOKEN = r.token;
     USER  = r.user;
     localStorage.setItem('qs_token', TOKEN);
@@ -323,6 +344,33 @@ async function doLogin() {
   } catch (e) {
     showErr(errEl, e.message || 'Login failed');
   } finally { setLoading(false); }
+}
+
+async function doTotpVerify() {
+  if (!_pendingLogin) return;
+  const totp_code = document.getElementById('login-totp').value.replace(/\s/g, '');
+  const errEl     = document.getElementById('login-err');
+  errEl.style.display = 'none';
+  if (totp_code.length !== 6) { showErr(errEl, 'Enter the 6-digit code from Q-Authenticator'); return; }
+  setLoading(true);
+  try {
+    const r = await api('POST', '/api/auth/login', { ..._pendingLogin, totp_code }, false);
+    TOKEN = r.token; USER = r.user;
+    localStorage.setItem('qs_token', TOKEN);
+    localStorage.setItem('qs_user',  JSON.stringify(USER));
+    _pendingLogin = null;
+    showApp();
+  } catch (e) {
+    showErr(errEl, e.message || 'Invalid code — try again');
+  } finally { setLoading(false); }
+}
+
+function cancelTotp() {
+  _pendingLogin = null;
+  document.getElementById('totp-step').style.display = 'none';
+  document.getElementById('login-btn').style.display = '';
+  document.getElementById('login-totp').value = '';
+  document.getElementById('login-err').style.display = 'none';
 }
 
 function doLogout() {

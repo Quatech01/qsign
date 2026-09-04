@@ -20,6 +20,7 @@ app.use(express.urlencoded({ extended: false }));
 app.get('/api/health', (_, res) => res.json({ ok: true }));
 
 app.use('/api/auth',       require('./routes/auth'));
+app.use('/api/auth/totp',  require('./routes/totp'));
 app.use('/api/attendance', require('./routes/attendance'));
 app.use('/api/admin',      require('./routes/admin'));
 
