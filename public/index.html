@@ -160,6 +160,18 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
         <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
       </div>
       <button class="btn btn-blue" id="login-btn" onclick="doLogin()">Sign In</button>
+      <!-- Fingerprint login -->
+      <div id="fp-wrap" style="display:none;margin-top:.4rem">
+        <div style="display:flex;align-items:center;gap:.5rem;margin:.1rem 0 .45rem">
+          <div style="flex:1;height:1px;background:var(--border,#e2e8f0)"></div>
+          <span style="font-size:.72rem;color:var(--muted,#94a3b8)">or</span>
+          <div style="flex:1;height:1px;background:var(--border,#e2e8f0)"></div>
+        </div>
+        <button type="button" onclick="doFingerprintLogin()" style="width:100%;padding:.65rem;border:1.5px solid var(--border,#e2e8f0);border-radius:10px;background:var(--card,#fff);color:var(--text,#0f172a);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.5rem;font-size:.875rem;font-family:inherit">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12C2 6.5 6.5 2 12 2a10 10 0 0 1 8 4"/><path d="M5 19.5C5.5 18 6 15 6 12c0-1.7.6-3.2 1.6-4.4"/><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/><path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/><path d="M8.65 22c.21-.66.45-1.32.57-2"/><path d="M14 13.12c0 2.38 0 6.38-1 8.88"/><path d="M2 16h.01"/><path d="M21.8 16c.2-2 .131-5.354 0-6"/><path d="M9 6.8a6 6 0 0 1 9 5.2c0 .47 0 1.17-.02 2"/></svg>
+          Use fingerprint / Face ID
+        </button>
+      </div>
       <!-- 2FA step (hidden until totp_required) -->
       <div id="totp-step" style="display:none;flex-direction:column;gap:.75rem">
         <div style="text-align:center;padding:.75rem;background:var(--blue-lt);border-radius:10px;font-size:.85rem;color:var(--blue)">
@@ -341,6 +353,7 @@ async function doLogin() {
     localStorage.setItem('qs_token', TOKEN);
     localStorage.setItem('qs_user',  JSON.stringify(USER));
     showApp();
+    setTimeout(() => webauthn_offerSetup(), 800);
   } catch (e) {
     showErr(errEl, e.message || 'Login failed');
   } finally { setLoading(false); }
@@ -654,6 +667,103 @@ if ('serviceWorker' in navigator) {
     wrap.appendChild(btn);
   });
 })();
+
+// ── WebAuthn / Fingerprint ────────────────────────────────────────────────────
+function _b64ToBuffer(b64url) {
+  const b64 = b64url.replace(/-/g,'+').replace(/_/g,'/');
+  return Uint8Array.from(atob(b64), c => c.charCodeAt(0)).buffer;
+}
+function _bufToB64(buf) {
+  const bytes = new Uint8Array(buf);
+  let s = ''; bytes.forEach(b => s += String.fromCharCode(b));
+  return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+
+async function doFingerprintLogin() {
+  const errEl = document.getElementById('login-err');
+  if (errEl) errEl.style.display = 'none';
+  try {
+    const res = await fetch('/api/auth/webauthn/login/options', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+    const opts = await res.json();
+    if (!res.ok) throw new Error(opts.error || 'Could not start fingerprint login');
+    const { _ck, ...pubOpts } = opts;
+
+    const cred = await navigator.credentials.get({ publicKey: {
+      ...pubOpts,
+      challenge: _b64ToBuffer(pubOpts.challenge),
+      allowCredentials: (pubOpts.allowCredentials||[]).map(c => ({...c, id:_b64ToBuffer(c.id)})),
+    }});
+    if (!cred) throw new Error('Fingerprint cancelled');
+
+    const body = {
+      _ck,
+      id: cred.id,
+      rawId: _bufToB64(cred.rawId),
+      type: cred.type,
+      response: {
+        clientDataJSON: _bufToB64(cred.response.clientDataJSON),
+        authenticatorData: _bufToB64(cred.response.authenticatorData),
+        signature: _bufToB64(cred.response.signature),
+        userHandle: cred.response.userHandle ? _bufToB64(cred.response.userHandle) : null,
+      },
+    };
+
+    const vres = await fetch('/api/auth/webauthn/login/verify', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    const data = await vres.json();
+    if (!vres.ok) throw new Error(data.error || 'Fingerprint login failed');
+
+    TOKEN = data.token;
+    USER  = data.user;
+    localStorage.setItem('qs_token', TOKEN);
+    localStorage.setItem('qs_user',  JSON.stringify(USER));
+    showApp();
+    // Offer fingerprint setup for workers who haven't registered yet
+    setTimeout(() => webauthn_offerSetup(), 800);
+  } catch(e) {
+    if (e.name !== 'NotAllowedError') showErr(document.getElementById('login-err'), e.message || 'Fingerprint not recognised');
+  }
+}
+
+async function webauthn_offerSetup() {
+  if (!TOKEN || !window.PublicKeyCredential) return;
+  try {
+    const rows = await api('GET', '/api/auth/webauthn/devices');
+    if (rows.length) return; // already has a device
+    const setup = confirm('Enable fingerprint sign-in for next time?\n\nTap OK then follow your phone\'s prompt.');
+    if (!setup) return;
+    await webauthn_registerWorker();
+  } catch(e) { /* silent */ }
+}
+
+async function webauthn_registerWorker() {
+  try {
+    const opts = await api('POST', '/api/auth/webauthn/register/options', {});
+    const cred = await navigator.credentials.create({ publicKey: {
+      ...opts,
+      challenge: _b64ToBuffer(opts.challenge),
+      user: { ...opts.user, id: _b64ToBuffer(opts.user.id) },
+      excludeCredentials: (opts.excludeCredentials||[]).map(c => ({...c, id:_b64ToBuffer(c.id)})),
+    }});
+    if (!cred) return;
+    await api('POST', '/api/auth/webauthn/register/verify', {
+      deviceName: navigator.platform || 'My device',
+      id: cred.id,
+      rawId: _bufToB64(cred.rawId),
+      type: cred.type,
+      response: {
+        clientDataJSON: _bufToB64(cred.response.clientDataJSON),
+        attestationObject: _bufToB64(cred.response.attestationObject),
+      },
+    });
+  } catch(e) { /* silent — fingerprint is optional */ }
+}
+
+// Show fingerprint button if browser supports WebAuthn
+if (window.PublicKeyCredential) {
+  const fpWrap = document.getElementById('fp-wrap');
+  if (fpWrap) fpWrap.style.display = '';
+}
+
 </script>
 </body>
 </html>
