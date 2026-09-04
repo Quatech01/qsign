@@ -265,6 +265,59 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
     <div id="admin-link-wrap" style="display:none">
       <a href="/admin.html" style="display:block;text-align:center;padding:.7rem;border-radius:10px;background:var(--blue);color:#fff;font-weight:700;font-size:.875rem;text-decoration:none;margin-top:.5rem">Open Admin Dashboard →</a>
     </div>
+
+    <!-- Security section -->
+    <div style="margin-top:1.25rem;background:var(--card,#fff);border-radius:14px;padding:1.1rem;border:1px solid var(--border,#e2e8f0)">
+      <div style="font-weight:700;font-size:.95rem;margin-bottom:1rem">Security</div>
+
+      <!-- Q-Authenticator / TOTP -->
+      <div style="margin-bottom:1.1rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
+          <span style="font-size:.875rem;font-weight:600">Q-Authenticator</span>
+          <span id="w-totp-badge" style="font-size:.72rem;padding:.2rem .6rem;border-radius:999px;background:#dcfce7;color:#15803d;font-weight:700">OFF</span>
+        </div>
+        <p style="font-size:.78rem;color:var(--muted,#94a3b8);margin-bottom:.65rem">Use 6-digit codes from Q-Authenticator app as a second sign-in factor.</p>
+
+        <!-- setup panel (TOTP off) -->
+        <div id="w-totp-setup-panel">
+          <button onclick="w_tfa_startSetup()" style="width:100%;padding:.6rem;border:1.5px solid var(--border,#e2e8f0);border-radius:9px;background:none;color:var(--blue,#2563eb);font-weight:600;font-size:.85rem;cursor:pointer">Set up Q-Authenticator</button>
+        </div>
+
+        <!-- QR panel -->
+        <div id="w-totp-qr-panel" style="display:none">
+          <p style="font-size:.78rem;color:var(--muted,#94a3b8);margin-bottom:.5rem">Scan this QR code with Q-Authenticator, then enter the 6-digit code to confirm.</p>
+          <img id="w-totp-qr-img" style="width:160px;height:160px;border-radius:8px;display:block;margin:.5rem auto">
+          <input type="text" id="w-totp-code" placeholder="000000" inputmode="numeric" maxlength="6" style="width:100%;padding:.65rem;border:1.5px solid var(--border,#e2e8f0);border-radius:9px;font-size:1.25rem;letter-spacing:.3em;text-align:center;margin:.5rem 0;background:var(--card,#fff);color:var(--text,#0f172a);outline:none">
+          <div style="display:flex;gap:.5rem">
+            <button onclick="w_tfa_enable()" style="flex:1;padding:.6rem;border:none;border-radius:9px;background:var(--blue,#2563eb);color:#fff;font-weight:600;font-size:.85rem;cursor:pointer">Confirm &amp; Enable</button>
+            <button onclick="w_tfa_cancelSetup()" style="padding:.6rem .9rem;border:none;border-radius:9px;background:var(--border,#e2e8f0);color:var(--text,#0f172a);font-size:.85rem;cursor:pointer">Cancel</button>
+          </div>
+        </div>
+
+        <!-- disable panel (TOTP on) -->
+        <div id="w-totp-disable-panel" style="display:none">
+          <input type="text" id="w-totp-dis-code" placeholder="000000" inputmode="numeric" maxlength="6" style="width:100%;padding:.65rem;border:1.5px solid var(--border,#e2e8f0);border-radius:9px;font-size:1.25rem;letter-spacing:.3em;text-align:center;margin-bottom:.5rem;background:var(--card,#fff);color:var(--text,#0f172a);outline:none">
+          <button onclick="w_tfa_disable()" style="width:100%;padding:.6rem;border:none;border-radius:9px;background:#fee2e2;color:#b91c1c;font-weight:600;font-size:.85rem;cursor:pointer">Disable Q-Authenticator</button>
+        </div>
+
+        <div id="w-totp-err" style="color:#ef4444;font-size:.78rem;margin-top:.4rem;display:none"></div>
+      </div>
+
+      <div style="height:1px;background:var(--border,#e2e8f0);margin:.75rem 0"></div>
+
+      <!-- Fingerprint -->
+      <div id="w-fp-section" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
+          <span style="font-size:.875rem;font-weight:600">Fingerprint / Face ID</span>
+        </div>
+        <p style="font-size:.78rem;color:var(--muted,#94a3b8);margin-bottom:.65rem">Sign in with your fingerprint — no password needed.</p>
+        <div id="w-fp-devices"></div>
+        <div id="w-fp-err" style="color:#ef4444;font-size:.78rem;margin-top:.4rem;display:none"></div>
+        <button onclick="w_fp_register()" style="width:100%;padding:.6rem;border:1.5px solid var(--border,#e2e8f0);border-radius:9px;background:none;color:var(--blue,#2563eb);font-weight:600;font-size:.85rem;cursor:pointer;margin-top:.4rem">
+          Register fingerprint
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- BOTTOM NAV -->
@@ -353,7 +406,6 @@ async function doLogin() {
     localStorage.setItem('qs_token', TOKEN);
     localStorage.setItem('qs_user',  JSON.stringify(USER));
     showApp();
-    setTimeout(() => webauthn_offerSetup(), 800);
   } catch (e) {
     showErr(errEl, e.message || 'Login failed');
   } finally { setLoading(false); }
@@ -600,6 +652,126 @@ function renderProfile() {
   document.getElementById('profile-name').textContent   = USER?.name || '';
   document.getElementById('profile-meta').textContent   =
     [USER?.department, USER?.email].filter(Boolean).join(' · ');
+  w_security_load();
+}
+
+// ── Worker security (TOTP + Fingerprint) ─────────────────────────────────────
+async function w_security_load() {
+  w_tfa_loadStatus();
+  // Show fingerprint section only if browser supports it
+  if (window.PublicKeyCredential) {
+    document.getElementById('w-fp-section').style.display = '';
+    w_fp_loadDevices();
+  }
+}
+
+// ─ TOTP ─────────────────────────────────────────────────────────────────────
+async function w_tfa_loadStatus() {
+  try {
+    const r = await api('GET', '/api/auth/totp/status');
+    const badge    = document.getElementById('w-totp-badge');
+    const setup    = document.getElementById('w-totp-setup-panel');
+    const disPanel = document.getElementById('w-totp-disable-panel');
+    const qrPanel  = document.getElementById('w-totp-qr-panel');
+    qrPanel.style.display = 'none';
+    if (r.totp_enabled) {
+      badge.textContent = 'ON'; badge.style.background = '#dcfce7'; badge.style.color = '#15803d';
+      setup.style.display = 'none'; disPanel.style.display = '';
+    } else {
+      badge.textContent = 'OFF'; badge.style.background = '#f1f5f9'; badge.style.color = '#64748b';
+      setup.style.display = ''; disPanel.style.display = 'none';
+    }
+  } catch(e) { console.error(e); }
+}
+
+async function w_tfa_startSetup() {
+  const errEl = document.getElementById('w-totp-err');
+  errEl.style.display = 'none';
+  try {
+    const r = await api('POST', '/api/auth/totp/setup', {});
+    document.getElementById('w-totp-qr-img').src = r.qr;
+    document.getElementById('w-totp-setup-panel').style.display = 'none';
+    document.getElementById('w-totp-qr-panel').style.display = '';
+    document.getElementById('w-totp-code').value = '';
+    document.getElementById('w-totp-code').focus();
+  } catch(e) { errEl.textContent = e.message || 'Setup failed'; errEl.style.display = ''; }
+}
+
+function w_tfa_cancelSetup() {
+  document.getElementById('w-totp-qr-panel').style.display = 'none';
+  document.getElementById('w-totp-setup-panel').style.display = '';
+  document.getElementById('w-totp-err').style.display = 'none';
+}
+
+async function w_tfa_enable() {
+  const code  = document.getElementById('w-totp-code').value.replace(/\s/g,'');
+  const errEl = document.getElementById('w-totp-err');
+  errEl.style.display = 'none';
+  if (code.length !== 6) { errEl.textContent = 'Enter the 6-digit code'; errEl.style.display = ''; return; }
+  try {
+    await api('POST', '/api/auth/totp/enable', { code });
+    await w_tfa_loadStatus();
+  } catch(e) { errEl.textContent = e.message || 'Invalid code'; errEl.style.display = ''; }
+}
+
+async function w_tfa_disable() {
+  const code  = document.getElementById('w-totp-dis-code').value.replace(/\s/g,'');
+  const errEl = document.getElementById('w-totp-err');
+  errEl.style.display = 'none';
+  if (code.length !== 6) { errEl.textContent = 'Enter your current 6-digit code'; errEl.style.display = ''; return; }
+  try {
+    await api('POST', '/api/auth/totp/disable', { code });
+    document.getElementById('w-totp-dis-code').value = '';
+    await w_tfa_loadStatus();
+  } catch(e) { errEl.textContent = e.message || 'Invalid code'; errEl.style.display = ''; }
+}
+
+// ─ Fingerprint ───────────────────────────────────────────────────────────────
+async function w_fp_loadDevices() {
+  const wrap  = document.getElementById('w-fp-devices');
+  const errEl = document.getElementById('w-fp-err');
+  errEl.style.display = 'none';
+  try {
+    const rows = await api('GET', '/api/auth/webauthn/devices');
+    if (!rows.length) { wrap.innerHTML = '<p style="font-size:.78rem;color:var(--muted,#94a3b8);margin-bottom:.4rem">No fingerprint registered yet.</p>'; return; }
+    wrap.innerHTML = rows.map(d => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:.45rem .6rem;background:var(--bg,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;margin-bottom:.4rem;font-size:.82rem">
+        <span>📱 ${d.name} <span style="font-size:.72rem;color:var(--muted,#94a3b8)">${new Date(d.created_at).toLocaleDateString()}</span></span>
+        <button onclick="w_fp_remove(${d.id})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:.78rem;padding:.1rem .4rem">Remove</button>
+      </div>`).join('');
+  } catch(e) { errEl.textContent = e.message || 'Could not load devices'; errEl.style.display = ''; }
+}
+
+async function w_fp_register() {
+  const errEl = document.getElementById('w-fp-err');
+  errEl.style.display = 'none';
+  try {
+    const opts = await api('POST', '/api/auth/webauthn/register/options', {});
+    const cred = await navigator.credentials.create({ publicKey: {
+      ...opts,
+      challenge: _b64ToBuffer(opts.challenge),
+      user: { ...opts.user, id: _b64ToBuffer(opts.user.id) },
+      excludeCredentials: (opts.excludeCredentials||[]).map(c => ({...c, id:_b64ToBuffer(c.id)})),
+    }});
+    if (!cred) return;
+    await api('POST', '/api/auth/webauthn/register/verify', {
+      deviceName: navigator.platform || 'My device',
+      id: cred.id, rawId: _bufToB64(cred.rawId), type: cred.type,
+      response: {
+        clientDataJSON: _bufToB64(cred.response.clientDataJSON),
+        attestationObject: _bufToB64(cred.response.attestationObject),
+      },
+    });
+    await w_fp_loadDevices();
+  } catch(e) {
+    if (e.name !== 'NotAllowedError') { errEl.textContent = e.message || 'Registration failed'; errEl.style.display = ''; }
+  }
+}
+
+async function w_fp_remove(id) {
+  if (!confirm('Remove this fingerprint device?')) return;
+  try { await api('DELETE', `/api/auth/webauthn/devices/${id}`); await w_fp_loadDevices(); }
+  catch(e) { alert(e.message || 'Failed to remove'); }
 }
 
 // ── Screen switcher ───────────────────────────────────────────────────────────
@@ -717,8 +889,6 @@ async function doFingerprintLogin() {
     localStorage.setItem('qs_token', TOKEN);
     localStorage.setItem('qs_user',  JSON.stringify(USER));
     showApp();
-    // Offer fingerprint setup for workers who haven't registered yet
-    setTimeout(() => webauthn_offerSetup(), 800);
   } catch(e) {
     if (e.name !== 'NotAllowedError') showErr(document.getElementById('login-err'), e.message || 'Fingerprint not recognised');
   }
