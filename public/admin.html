@@ -178,7 +178,19 @@ tr:hover td{background:var(--faint)}
       <label>Password</label>
       <input type="password" id="adm-pass" placeholder="••••••••" autocomplete="current-password">
     </div>
-    <button class="btn-full" onclick="doAdminLogin()">Sign In</button>
+    <button class="btn-full" id="adm-login-btn" onclick="doAdminLogin()">Sign In</button>
+    <!-- 2FA step -->
+    <div id="adm-totp-step" style="display:none">
+      <div style="padding:.65rem .85rem;border-radius:8px;background:#eff6ff;color:#1d4ed8;font-size:.82rem;margin-bottom:.75rem">
+        🔐 Enter the 6-digit code from <strong>Q-Authenticator</strong>
+      </div>
+      <div class="field">
+        <label>Authenticator Code</label>
+        <input type="text" id="adm-totp" placeholder="000000" inputmode="numeric" maxlength="6" autocomplete="one-time-code" style="letter-spacing:.3em;font-size:1.4rem;text-align:center">
+      </div>
+      <button class="btn-full" onclick="doAdminTotpVerify()" style="margin-bottom:.5rem">Verify</button>
+      <button class="btn-full" onclick="cancelAdminTotp()" style="background:var(--border);color:var(--text)">Back</button>
+    </div>
     <p style="font-size:.72rem;color:var(--muted);text-align:center">Worker? <a href="/" style="color:var(--blue)">Go to app →</a></p>
   </div>
 </div>
@@ -692,6 +704,8 @@ function setDefaultDates() {
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
+let _admPending = null;
+
 async function doAdminLogin() {
   const company_code = document.getElementById('adm-code').value.trim();
   const email        = document.getElementById('adm-email').value.trim();
@@ -701,12 +715,44 @@ async function doAdminLogin() {
   if (!company_code || !email || !password) { showErr(errEl, 'Enter company code, email, and password'); return; }
   try {
     const r = await api('POST', '/api/auth/login', { company_code, email, password }, false);
+    if (r.totp_required) {
+      _admPending = { company_code, email, password };
+      document.getElementById('adm-totp-step').style.display = '';
+      document.getElementById('adm-login-btn').style.display = 'none';
+      document.getElementById('adm-totp').focus();
+      return;
+    }
     if (r.user?.role !== 'admin') { showErr(errEl, 'Admin access required'); return; }
     TOKEN = r.token; USER = r.user;
     localStorage.setItem('qs_token', TOKEN);
     localStorage.setItem('qs_user',  JSON.stringify(USER));
     boot();
   } catch (e) { showErr(errEl, e.message || 'Login failed'); }
+}
+
+async function doAdminTotpVerify() {
+  if (!_admPending) return;
+  const totp_code = document.getElementById('adm-totp').value.replace(/\s/g, '');
+  const errEl     = document.getElementById('adm-err');
+  errEl.style.display = 'none';
+  if (totp_code.length !== 6) { showErr(errEl, 'Enter the 6-digit code'); return; }
+  try {
+    const r = await api('POST', '/api/auth/login', { ..._admPending, totp_code }, false);
+    if (r.user?.role !== 'admin') { showErr(errEl, 'Admin access required'); return; }
+    TOKEN = r.token; USER = r.user;
+    localStorage.setItem('qs_token', TOKEN);
+    localStorage.setItem('qs_user',  JSON.stringify(USER));
+    _admPending = null;
+    boot();
+  } catch (e) { showErr(errEl, e.message || 'Invalid code — try again'); }
+}
+
+function cancelAdminTotp() {
+  _admPending = null;
+  document.getElementById('adm-totp-step').style.display = 'none';
+  document.getElementById('adm-login-btn').style.display = '';
+  document.getElementById('adm-totp').value = '';
+  document.getElementById('adm-err').style.display = 'none';
 }
 
 function doLogout() {
