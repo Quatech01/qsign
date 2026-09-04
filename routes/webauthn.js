@@ -10,8 +10,18 @@ const pool = require('../lib/db');
 const { generateToken, requireAuth } = require('../lib/auth');
 
 const RP_NAME = 'QSign';
-const RP_ID   = process.env.WEBAUTHN_RP_ID  || 'localhost';
-const ORIGIN  = process.env.WEBAUTHN_ORIGIN || 'http://localhost:3000';
+
+// Auto-detect domain from request so no env vars are needed.
+// Override with WEBAUTHN_RP_ID / WEBAUTHN_ORIGIN if required.
+function getRpId(req) {
+  if (process.env.WEBAUTHN_RP_ID) return process.env.WEBAUTHN_RP_ID;
+  return req.hostname; // e.g. qsign.uk or qsign-rr06.onrender.com
+}
+function getOrigin(req) {
+  if (process.env.WEBAUTHN_ORIGIN) return process.env.WEBAUTHN_ORIGIN;
+  const proto = req.headers['x-forwarded-proto'] || req.protocol;
+  return `${proto}://${req.get('host')}`;
+}
 
 // In-memory challenge store — fine for a single Render instance
 const _ch = new Map();
@@ -37,9 +47,10 @@ router.post('/register/options', requireAuth, async (req, res) => {
       'SELECT credential_id FROM webauthn_credentials WHERE user_id=$1', [u.id]
     );
 
+    const rpId = getRpId(req);
     const options = await generateRegistrationOptions({
       rpName: RP_NAME,
-      rpID: RP_ID,
+      rpID: rpId,
       userID: Buffer.from(String(u.id)),
       userName: u.email,
       userDisplayName: u.name,
@@ -54,23 +65,24 @@ router.post('/register/options', requireAuth, async (req, res) => {
       },
     });
 
-    storeChallenge(`reg:${u.id}`, options.challenge);
+    storeChallenge(`reg:${u.id}`, { challenge: options.challenge, rpId, origin: getOrigin(req) });
     res.json(options);
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to generate options' }); }
 });
 
 router.post('/register/verify', requireAuth, async (req, res) => {
   try {
-    const challenge = consumeChallenge(`reg:${req.user.sub}`);
-    if (!challenge) return res.status(400).json({ error: 'Challenge expired — start over' });
+    const stored = consumeChallenge(`reg:${req.user.sub}`);
+    if (!stored) return res.status(400).json({ error: 'Challenge expired — start over' });
+    const { challenge, rpId, origin } = stored;
 
     const { deviceName, ...body } = req.body;
 
     const verification = await verifyRegistrationResponse({
       response: body,
       expectedChallenge: challenge,
-      expectedOrigin: ORIGIN,
-      expectedRPID: RP_ID,
+      expectedOrigin: origin,
+      expectedRPID: rpId,
       requireUserVerification: true,
     });
 
@@ -98,16 +110,17 @@ router.post('/register/verify', requireAuth, async (req, res) => {
 
 // ── Authentication (public) ───────────────────────────────────────────────────
 
-router.post('/login/options', async (_req, res) => {
+router.post('/login/options', async (req, res) => {
   try {
+    const rpId = getRpId(req);
     const options = await generateAuthenticationOptions({
-      rpID: RP_ID,
+      rpID: rpId,
       userVerification: 'required',
       allowCredentials: [], // discoverable — browser shows which account to use
     });
 
     const key = `auth:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-    storeChallenge(key, options.challenge);
+    storeChallenge(key, { challenge: options.challenge, rpId, origin: getOrigin(req) });
     res.json({ ...options, _ck: key });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to generate options' }); }
 });
@@ -115,8 +128,9 @@ router.post('/login/options', async (_req, res) => {
 router.post('/login/verify', async (req, res) => {
   try {
     const { _ck, ...body } = req.body;
-    const challenge = consumeChallenge(_ck);
-    if (!challenge) return res.status(400).json({ error: 'Challenge expired — try again' });
+    const stored = consumeChallenge(_ck);
+    if (!stored) return res.status(400).json({ error: 'Challenge expired — try again' });
+    const { challenge, rpId, origin } = stored;
 
     const { rows: [cred] } = await pool.query(
       `SELECT wc.*, u.id AS uid, u.name AS uname, u.email, u.role, u.company_id, u.active
@@ -130,8 +144,8 @@ router.post('/login/verify', async (req, res) => {
     const verification = await verifyAuthenticationResponse({
       response: body,
       expectedChallenge: challenge,
-      expectedOrigin: ORIGIN,
-      expectedRPID: RP_ID,
+      expectedOrigin: origin,
+      expectedRPID: rpId,
       authenticator: {
         credentialID: Buffer.from(cred.credential_id, 'base64url'),
         credentialPublicKey: Buffer.from(cred.public_key, 'base64'),
