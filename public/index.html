@@ -609,7 +609,7 @@ async function api(method, path, body, auth = true) {
 }
 
 function setLoading(on) { document.getElementById('loader').classList.toggle('show', on); }
-function showErr(el, msg) { el.textContent = msg; el.style.display = ''; }
+function showErr(el, msg) { el.textContent = msg; el.style.display = 'block'; }
 function initials(name) { return name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
 function fmtDuration(ms) {
   const h = Math.floor(ms / 3600000);

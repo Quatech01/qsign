@@ -1386,7 +1386,7 @@ async function api(method, path, body, auth = true) {
 
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-function showErr(el, msg) { el.textContent = msg; el.style.display = ''; }
+function showErr(el, msg) { el.textContent = msg; el.style.display = 'block'; }
 function toLocalDT(iso) {
   const d = new Date(iso);
   return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,16);
