@@ -44,7 +44,11 @@ router.post('/forgot', async (req, res) => {
     const code = String(Math.floor(100000 + Math.random() * 900000));
     storeCode(`${company.id}:${u.email.toLowerCase()}`, { code, userId: u.id });
 
-    await sendMail({
+    // Respond immediately — don't make the user wait for SMTP
+    res.json(SAFE);
+
+    // Send email in background
+    sendMail({
       to: u.email,
       subject: 'QSign — Password Reset Code',
       html: `
@@ -68,9 +72,7 @@ router.post('/forgot', async (req, res) => {
             your password will not change.
           </p>
         </div>`,
-    });
-
-    res.json(SAFE);
+    }).catch(err => console.error('[reset] email send failed:', err));
   } catch (err) {
     console.error('[reset] forgot:', err);
     res.json(SAFE); // never leak errors
