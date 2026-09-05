@@ -146,34 +146,39 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
       <p>Attendance & time management</p>
     </div>
     <div class="login-form">
-      <div class="err-box" id="login-err"></div>
-      <div class="field">
-        <label>Company Code</label>
-        <input type="text" id="login-code" placeholder="e.g. UNILIV" autocomplete="organization" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
-      </div>
-      <div class="field">
-        <label>Email or Staff ID</label>
-        <input type="text" id="login-email" placeholder="EMP001 or you@company.com" autocomplete="username" inputmode="email">
-      </div>
-      <div class="field">
-        <label>Password</label>
-        <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
-      </div>
-      <button class="btn btn-blue" id="login-btn" onclick="doLogin()">Sign In</button>
-      <p style="text-align:center;margin:.3rem 0 0"><button type="button" onclick="showForgot()" style="background:none;border:none;color:var(--blue);font-size:.8rem;cursor:pointer;padding:0;font-family:inherit">Forgot password?</button></p>
-      <!-- Fingerprint login -->
-      <div id="fp-wrap" style="display:none;margin-top:.4rem">
-        <div style="display:flex;align-items:center;gap:.5rem;margin:.1rem 0 .45rem">
-          <div style="flex:1;height:1px;background:var(--border,#e2e8f0)"></div>
-          <span style="font-size:.72rem;color:var(--muted,#94a3b8)">or</span>
-          <div style="flex:1;height:1px;background:var(--border,#e2e8f0)"></div>
+
+      <!-- ── Normal login fields ── -->
+      <div id="login-fields" style="display:flex;flex-direction:column;gap:.75rem">
+        <div class="err-box" id="login-err"></div>
+        <div class="field">
+          <label>Company Code</label>
+          <input type="text" id="login-code" placeholder="e.g. UNILIV" autocomplete="organization" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
         </div>
-        <button type="button" onclick="doFingerprintLogin()" style="width:100%;padding:.65rem;border:1.5px solid var(--border,#e2e8f0);border-radius:10px;background:var(--panel);color:var(--text,#0f172a);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.5rem;font-size:.875rem;font-family:inherit">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12C2 6.5 6.5 2 12 2a10 10 0 0 1 8 4"/><path d="M5 19.5C5.5 18 6 15 6 12c0-1.7.6-3.2 1.6-4.4"/><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/><path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/><path d="M8.65 22c.21-.66.45-1.32.57-2"/><path d="M14 13.12c0 2.38 0 6.38-1 8.88"/><path d="M2 16h.01"/><path d="M21.8 16c.2-2 .131-5.354 0-6"/><path d="M9 6.8a6 6 0 0 1 9 5.2c0 .47 0 1.17-.02 2"/></svg>
-          Use fingerprint / Face ID
-        </button>
+        <div class="field">
+          <label>Email or Staff ID</label>
+          <input type="text" id="login-email" placeholder="EMP001 or you@company.com" autocomplete="username" inputmode="email">
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <button class="btn btn-blue" id="login-btn" onclick="doLogin()">Sign In</button>
+        <p style="text-align:center;margin:0"><button type="button" onclick="showForgot()" style="background:none;border:none;color:var(--blue);font-size:.8rem;cursor:pointer;padding:0;font-family:inherit">Forgot password?</button></p>
+        <!-- Fingerprint login -->
+        <div id="fp-wrap" style="display:none">
+          <div style="display:flex;align-items:center;gap:.5rem;margin:.1rem 0 .45rem">
+            <div style="flex:1;height:1px;background:var(--border)"></div>
+            <span style="font-size:.72rem;color:var(--muted)">or</span>
+            <div style="flex:1;height:1px;background:var(--border)"></div>
+          </div>
+          <button type="button" onclick="doFingerprintLogin()" style="width:100%;padding:.65rem;border:1.5px solid var(--border);border-radius:10px;background:var(--panel);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.5rem;font-size:.875rem;font-family:inherit">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12C2 6.5 6.5 2 12 2a10 10 0 0 1 8 4"/><path d="M5 19.5C5.5 18 6 15 6 12c0-1.7.6-3.2 1.6-4.4"/><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/><path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/><path d="M8.65 22c.21-.66.45-1.32.57-2"/><path d="M14 13.12c0 2.38 0 6.38-1 8.88"/><path d="M2 16h.01"/><path d="M21.8 16c.2-2 .131-5.354 0-6"/><path d="M9 6.8a6 6 0 0 1 9 5.2c0 .47 0 1.17-.02 2"/></svg>
+            Use fingerprint / Face ID
+          </button>
+        </div>
       </div>
-      <!-- 2FA step (hidden until totp_required) -->
+
+      <!-- ── 2FA step ── -->
       <div id="totp-step" style="display:none;flex-direction:column;gap:.75rem">
         <div style="text-align:center;padding:.75rem;background:var(--blue-lt);border-radius:10px;font-size:.85rem;color:var(--blue)">
           🔐 Open <strong>Q-Authenticator</strong> and enter the 6-digit code for <strong>QSign</strong>
@@ -185,53 +190,54 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
         <button class="btn btn-blue" onclick="doTotpVerify()">Verify</button>
         <button class="btn" style="background:var(--border);color:var(--text)" onclick="cancelTotp()">Back</button>
       </div>
-    </div>
-    <!-- ── Forgot password panel ────────────────────────────── -->
-    <div id="forgot-panel" class="login-form" style="display:none">
-      <button type="button" onclick="hideForgot()" style="background:none;border:none;color:var(--muted);font-size:.8rem;cursor:pointer;padding:0;text-align:left;font-family:inherit;display:flex;align-items:center;gap:.3rem">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-        Back to sign in
-      </button>
-      <div style="font-weight:700;font-size:1rem;color:var(--text)">Reset password</div>
 
-      <!-- Step 1: request code -->
-      <div id="forgot-step1">
-        <p style="font-size:.82rem;color:var(--muted);margin:0 0 .75rem">Enter your company code and email — we'll send a 6-digit reset code.</p>
-        <div class="err-box" id="forgot-err" style="margin-bottom:.5rem"></div>
-        <div class="field" style="margin-bottom:.5rem">
-          <label>Company Code</label>
-          <input type="text" id="forgot-code" placeholder="e.g. UNILIV" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+      <!-- ── Forgot password panel (inside same container = same width, always) ── -->
+      <div id="forgot-panel" style="display:none;flex-direction:column;gap:.75rem">
+        <button type="button" onclick="hideForgot()" style="background:none;border:none;color:var(--muted);font-size:.8rem;cursor:pointer;padding:0;text-align:left;font-family:inherit;display:flex;align-items:center;gap:.3rem">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Back to sign in
+        </button>
+        <div style="font-weight:700;font-size:1rem;color:var(--text)">Reset password</div>
+
+        <!-- Step 1 -->
+        <div id="forgot-step1" style="display:flex;flex-direction:column;gap:.65rem">
+          <p style="font-size:.82rem;color:var(--muted);margin:0">Enter your company code and email — we'll send a 6-digit reset code.</p>
+          <div class="err-box" id="forgot-err"></div>
+          <div class="field">
+            <label>Company Code</label>
+            <input type="text" id="forgot-code" placeholder="e.g. UNILIV" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+          </div>
+          <div class="field">
+            <label>Email</label>
+            <input type="email" id="forgot-email" placeholder="you@company.com" autocomplete="email" inputmode="email">
+          </div>
+          <button class="btn btn-blue" id="forgot-send-btn" onclick="doForgotSend()">Send reset code</button>
         </div>
-        <div class="field" style="margin-bottom:.75rem">
-          <label>Email</label>
-          <input type="email" id="forgot-email" placeholder="you@company.com" autocomplete="email" inputmode="email">
+
+        <!-- Step 2 -->
+        <div id="forgot-step2" style="display:none;flex-direction:column;gap:.65rem">
+          <div style="padding:.65rem .85rem;background:var(--blue-lt);border-radius:9px;font-size:.82rem;color:var(--blue)">
+            📧 A 6-digit code was sent to your email. Enter it below.
+          </div>
+          <div class="err-box" id="forgot-err2"></div>
+          <div class="field">
+            <label>Reset code</label>
+            <input type="text" id="forgot-otp" placeholder="000000" inputmode="numeric" maxlength="6" autocomplete="one-time-code" style="letter-spacing:.3em;font-size:1.4rem;text-align:center">
+          </div>
+          <div class="field">
+            <label>New password</label>
+            <input type="password" id="forgot-newpass" placeholder="Min 6 characters" autocomplete="new-password">
+          </div>
+          <div class="field">
+            <label>Confirm password</label>
+            <input type="password" id="forgot-confirmpass" placeholder="Repeat password" autocomplete="new-password">
+          </div>
+          <button class="btn btn-blue" id="forgot-reset-btn" onclick="doForgotReset()">Reset password</button>
+          <button type="button" class="btn" style="background:var(--border);color:var(--text)" onclick="doForgotSend(true)">Resend code</button>
         </div>
-        <button class="btn btn-blue" id="forgot-send-btn" onclick="doForgotSend()">Send reset code</button>
       </div>
 
-      <!-- Step 2: verify code + new password -->
-      <div id="forgot-step2" style="display:none;flex-direction:column;gap:.65rem">
-        <div style="padding:.65rem .85rem;background:var(--blue-lt);border-radius:9px;font-size:.82rem;color:var(--blue)">
-          📧 A 6-digit code was sent to your email. Enter it below.
-        </div>
-        <div class="err-box" id="forgot-err2"></div>
-        <div class="field">
-          <label>Reset code</label>
-          <input type="text" id="forgot-otp" placeholder="000000" inputmode="numeric" maxlength="6" autocomplete="one-time-code" style="letter-spacing:.3em;font-size:1.4rem;text-align:center">
-        </div>
-        <div class="field">
-          <label>New password</label>
-          <input type="password" id="forgot-newpass" placeholder="Min 6 characters" autocomplete="new-password">
-        </div>
-        <div class="field">
-          <label>Confirm password</label>
-          <input type="password" id="forgot-confirmpass" placeholder="Repeat password" autocomplete="new-password">
-        </div>
-        <button class="btn btn-blue" id="forgot-reset-btn" onclick="doForgotReset()">Reset password</button>
-        <button type="button" class="btn" style="background:var(--border);color:var(--text)" onclick="doForgotSend(true)">Resend code</button>
-      </div>
     </div>
-
     <p style="font-size:.73rem;color:var(--muted);text-align:center" id="no-account-msg">Don't have an account? Contact your administrator.</p>
   </div>
 </div>
@@ -432,9 +438,8 @@ let _pendingLogin = null;
 
 // ── Forgot / reset password ───────────────────────────────────────────────────
 function showForgot() {
-  document.getElementById('login-form') && (document.getElementById('login-form').style.display = 'none');
-  document.querySelector('.login-form').style.display = 'none';
-  document.getElementById('forgot-panel').style.display = 'flex'; // login-form class provides width:100%
+  document.getElementById('login-fields').style.display = 'none';
+  document.getElementById('forgot-panel').style.display = 'flex';
   document.getElementById('no-account-msg').style.display = 'none';
   // Pre-fill from login fields
   const code = document.getElementById('login-code').value.trim();
@@ -444,11 +449,11 @@ function showForgot() {
 }
 
 function hideForgot() {
-  document.querySelector('.login-form').style.display = 'flex';
+  document.getElementById('login-fields').style.display = 'flex';
   document.getElementById('forgot-panel').style.display = 'none';
   document.getElementById('no-account-msg').style.display = '';
   // reset panel state
-  document.getElementById('forgot-step1').style.display = '';
+  document.getElementById('forgot-step1').style.display = 'flex';
   document.getElementById('forgot-step2').style.display = 'none';
   document.getElementById('forgot-err').style.display = 'none';
   document.getElementById('forgot-err2').style.display = 'none';
