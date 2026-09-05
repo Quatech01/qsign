@@ -157,6 +157,8 @@ app.post('/api/admin-reset', async (req, res) => {
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+app.get('/signup', (_, res) => res.sendFile(path.join(__dirname, 'public', 'signup.html')));
+
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Not found' });
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
