@@ -365,7 +365,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
         </div>
         <p style="font-size:.78rem;color:var(--muted,#94a3b8);margin-bottom:.65rem">Sign in with your fingerprint — no password needed.</p>
         <div id="w-fp-devices"></div>
-        <div id="w-fp-err" style="color:#ef4444;font-size:.78rem;margin-top:.4rem;display:none"></div>
+        <div id="w-fp-err" style="color:#ef4444;font-size:.78rem;margin-top:.4rem;display:none;word-break:break-word;overflow-wrap:break-word;line-height:1.45"></div>
         <button onclick="w_fp_register()" style="width:100%;padding:.6rem;border:1.5px solid var(--border,#e2e8f0);border-radius:9px;background:none;color:var(--blue,#2563eb);font-weight:600;font-size:.85rem;cursor:pointer;margin-top:.4rem">
           Register fingerprint
         </button>
@@ -907,7 +907,13 @@ async function w_fp_register() {
     });
     await w_fp_loadDevices();
   } catch(e) {
-    if (e.name !== 'NotAllowedError') { errEl.textContent = e.message || 'Registration failed'; errEl.style.display = ''; }
+    if (e.name === 'NotAllowedError') return; // user cancelled — silent
+    const msg = (e.message || '').toLowerCase();
+    const friendly = msg.includes('atob') || msg.includes('encoded') || msg.includes('invalid character')
+      ? 'Registration failed — please try again'
+      : (e.message || 'Registration failed');
+    errEl.textContent = friendly;
+    errEl.style.display = '';
   }
 }
 
@@ -986,14 +992,17 @@ if ('serviceWorker' in navigator) {
 // ── WebAuthn / Fingerprint ────────────────────────────────────────────────────
 function _b64ToBuffer(b64url) {
   if (!b64url) return new ArrayBuffer(0);
-  // Already a buffer-like object (e.g. Uint8Array or ArrayBuffer)
   if (b64url instanceof ArrayBuffer) return b64url;
   if (ArrayBuffer.isView(b64url)) return b64url.buffer;
-  // Numeric-keyed object (Buffer serialised via JSON)
   if (typeof b64url === 'object') return new Uint8Array(Object.values(b64url)).buffer;
   const b64 = String(b64url).replace(/-/g,'+').replace(/_/g,'/');
   const padded = b64 + '='.repeat((4 - b64.length % 4) % 4);
-  return Uint8Array.from(atob(padded), c => c.charCodeAt(0)).buffer;
+  try {
+    return Uint8Array.from(atob(padded), c => c.charCodeAt(0)).buffer;
+  } catch(_) {
+    // Plain string (not base64) — UTF-8 encode instead
+    return new TextEncoder().encode(String(b64url)).buffer;
+  }
 }
 function _bufToB64(buf) {
   const bytes = new Uint8Array(buf);

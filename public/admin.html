@@ -1762,7 +1762,11 @@ function _b64ToBuffer(b64url) {
   if (typeof b64url === 'object') return new Uint8Array(Object.values(b64url)).buffer;
   const b64 = String(b64url).replace(/-/g,'+').replace(/_/g,'/');
   const padded = b64 + '='.repeat((4 - b64.length % 4) % 4);
-  return Uint8Array.from(atob(padded), c => c.charCodeAt(0)).buffer;
+  try {
+    return Uint8Array.from(atob(padded), c => c.charCodeAt(0)).buffer;
+  } catch(_) {
+    return new TextEncoder().encode(String(b64url)).buffer;
+  }
 }
 function _bufToB64(buf) {
   const bytes = new Uint8Array(buf);

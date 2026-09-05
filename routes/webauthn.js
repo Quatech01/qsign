@@ -51,7 +51,7 @@ router.post('/register/options', requireAuth, async (req, res) => {
     const options = await generateRegistrationOptions({
       rpName: RP_NAME,
       rpID: rpId,
-      userID: String(u.id),
+      userID: Buffer.from(String(u.id)).toString('base64url'),
       userName: u.email,
       userDisplayName: u.name,
       attestationType: 'none',
