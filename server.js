@@ -26,6 +26,61 @@ app.use('/api/auth/webauthn',   require('./routes/webauthn'));
 app.use('/api/attendance', require('./routes/attendance'));
 app.use('/api/admin',      require('./routes/admin'));
 
+// ── Public self-service signup ────────────────────────────────────────────────
+// Simple in-memory rate limiter: max 5 signups per IP per hour
+const _signupRateMap = new Map();
+function signupRateOk(ip) {
+  const now = Date.now();
+  const key  = ip || 'unknown';
+  const hits  = (_signupRateMap.get(key) || []).filter(t => now - t < 3_600_000);
+  if (hits.length >= 5) return false;
+  hits.push(now);
+  _signupRateMap.set(key, hits);
+  return true;
+}
+
+app.post('/api/companies/signup', async (req, res) => {
+  const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket?.remoteAddress;
+  if (!signupRateOk(ip))
+    return res.status(429).json({ error: 'Too many sign-ups from this network — try again in an hour' });
+
+  const { company_name, company_code, admin_name, admin_email, password } = req.body || {};
+  if (!company_name || !company_code || !admin_name || !admin_email || !password)
+    return res.status(400).json({ error: 'All fields are required' });
+  if (password.length < 8)
+    return res.status(400).json({ error: 'Password must be at least 8 characters' });
+
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRe.test(admin_email.trim()))
+    return res.status(400).json({ error: 'Enter a valid email address' });
+
+  const code = company_code.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (code.length < 3 || code.length > 12)
+    return res.status(400).json({ error: 'Company code must be 3–12 letters/numbers' });
+
+  try {
+    const { rows: [company] } = await pool.query(
+      "INSERT INTO companies (name, company_code) VALUES ($1, $2) RETURNING *",
+      [company_name.trim(), code]
+    );
+    const hash = await bcrypt.hash(password, 12);
+    const { rows: [u] } = await pool.query(
+      "INSERT INTO users (name,email,password_hash,role,company_id) VALUES ($1,$2,$3,'admin',$4) RETURNING id,name,email,role",
+      [admin_name.trim(), admin_email.toLowerCase().trim(), hash, company.id]
+    );
+    const token = generateToken({ sub: u.id, role: u.role, name: u.name, company_id: company.id });
+    res.status(201).json({
+      token,
+      user: u,
+      company: { name: company.name, company_code: company.company_code },
+    });
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'That company code or email is already registered' });
+    console.error(err);
+    res.status(500).json({ error: 'Sign-up failed — please try again' });
+  }
+});
+
 // Register a new company + admin account
 app.post('/api/companies/register', async (req, res) => {
   const { company_name, company_code, admin_name, admin_email, password, setup_key } = req.body || {};
