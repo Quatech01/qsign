@@ -4,6 +4,7 @@ const express = require('express');
 const bcrypt  = require('bcryptjs');
 const pool    = require('./lib/db');
 const { generateToken } = require('./lib/auth');
+const { sendMail }      = require('./lib/mailer');
 
 const app = express();
 
@@ -74,6 +75,42 @@ app.post('/api/companies/signup', async (req, res) => {
       user: u,
       company: { name: company.name, company_code: company.company_code },
     });
+
+    // Welcome email (background — don't block response)
+    sendMail({
+      to: u.email,
+      subject: `Welcome to QSign — your company is live`,
+      html: `
+        <div style="font-family:system-ui,Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#fff">
+          <div style="margin-bottom:20px">
+            <span style="font-size:1.25rem;font-weight:800;color:#2563eb;letter-spacing:-.02em">QSign</span>
+          </div>
+          <h2 style="font-size:1.3rem;font-weight:700;color:#0f172a;margin:0 0 8px">Welcome, ${u.name}! 🎉</h2>
+          <p style="color:#374151;margin:0 0 20px">Your company <strong>${company.name}</strong> is live on QSign. Here's everything you need to get started.</p>
+
+          <div style="background:#eff6ff;border-radius:12px;padding:16px 20px;margin-bottom:24px">
+            <div style="font-size:.8rem;font-weight:700;color:#1d4ed8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Your company code</div>
+            <div style="font-size:2rem;font-weight:800;color:#1d4ed8;font-family:ui-monospace,monospace;letter-spacing:.1em">${company.company_code}</div>
+            <div style="font-size:.8rem;color:#3b82f6;margin-top:4px">Share this with your workers so they can sign in at qsign.uk</div>
+          </div>
+
+          <div style="font-weight:700;color:#0f172a;margin-bottom:12px">Your next 3 steps:</div>
+          <table style="width:100%;border-collapse:collapse">
+            <tr><td style="padding:8px 0;vertical-align:top;width:28px"><span style="display:inline-block;width:22px;height:22px;background:#2563eb;color:#fff;border-radius:50%;text-align:center;font-size:.75rem;font-weight:700;line-height:22px">1</span></td>
+                <td style="padding:8px 0"><strong>Add a work location</strong><br><span style="color:#6b7280;font-size:.875rem">Set the GPS location where your workers clock in from.</span></td></tr>
+            <tr><td style="padding:8px 0;vertical-align:top"><span style="display:inline-block;width:22px;height:22px;background:#2563eb;color:#fff;border-radius:50%;text-align:center;font-size:.75rem;font-weight:700;line-height:22px">2</span></td>
+                <td style="padding:8px 0"><strong>Add your workers</strong><br><span style="color:#6b7280;font-size:.875rem">Create an account for each team member.</span></td></tr>
+            <tr><td style="padding:8px 0;vertical-align:top"><span style="display:inline-block;width:22px;height:22px;background:#2563eb;color:#fff;border-radius:50%;text-align:center;font-size:.75rem;font-weight:700;line-height:22px">3</span></td>
+                <td style="padding:8px 0"><strong>Share your company code</strong><br><span style="color:#6b7280;font-size:.875rem">Workers go to qsign.uk, enter <strong>${company.company_code}</strong> and sign in.</span></td></tr>
+          </table>
+
+          <div style="margin-top:28px">
+            <a href="https://www.qsign.uk/admin.html" style="display:inline-block;background:#2563eb;color:#fff;font-weight:700;padding:12px 28px;border-radius:10px;text-decoration:none;font-size:.95rem">Go to admin dashboard →</a>
+          </div>
+          <p style="color:#9ca3af;font-size:.78rem;margin-top:24px">You're receiving this because you signed up at qsign.uk.</p>
+        </div>`,
+    }).catch(err => console.error('[signup] welcome email failed:', err));
+
   } catch (err) {
     if (err.code === '23505') return res.status(409).json({ error: 'That company code or email is already registered' });
     console.error(err);

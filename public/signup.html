@@ -157,8 +157,6 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
     </div>
 
     <button class="btn btn-blue" id="signup-btn" onclick="doSignup()">Create account →</button>
-
-    <p class="footer-link">Already have an account? <a href="/admin.html">Sign in</a></p>
   </div>
 
   <!-- Success screen -->
@@ -169,12 +167,16 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
     <div>
       <div class="success-title">You're all set!</div>
       <div class="success-sub" style="margin-top:.5rem">
-        Your company is live. Share your company code with your workers so they can sign in.
+        Your company is live. Share your company code with your workers so they can sign in.<br>
+        A welcome email with setup steps has been sent to you.
       </div>
     </div>
     <div>
       <div style="font-size:.78rem;color:var(--muted);margin-bottom:.35rem;text-transform:uppercase;letter-spacing:.06em;font-weight:600">Your company code</div>
       <div class="code-badge" id="success-code"></div>
+    </div>
+    <div style="font-size:.8rem;color:var(--muted);text-align:center">
+      Taking you to your dashboard in <span id="redirect-count">5</span>s…
     </div>
     <button class="btn btn-blue" onclick="goToDashboard()">Go to admin dashboard →</button>
   </div>
@@ -262,6 +264,15 @@ async function doSignup() {
     document.getElementById('signin-link').style.display = 'none';
     document.getElementById('success-screen').style.display = 'flex';
     document.getElementById('success-screen').style.flexDirection = 'column';
+
+    // Auto-redirect to dashboard after 5 seconds
+    let count = 5;
+    const countEl = document.getElementById('redirect-count');
+    const timer = setInterval(() => {
+      count--;
+      if (countEl) countEl.textContent = count;
+      if (count <= 0) { clearInterval(timer); goToDashboard(); }
+    }, 1000);
   } catch (e) {
     showErr('Connection error — check your internet and try again');
     btn.disabled = false;
