@@ -169,8 +169,9 @@ app.use((err, _req, res, _next) => {
 
 const PORT = process.env.PORT || 3000;
 if (require.main === module) {
-  require('./lib/migrate')().then(() => {
+  require('./lib/migrate')().then(async () => {
     app.listen(PORT, () => console.log(`Qsign on http://localhost:${PORT}`));
+    await require('./lib/mailer').verifySmtp();
   }).catch(err => { console.error('Startup migration failed:', err); process.exit(1); });
 }
 
