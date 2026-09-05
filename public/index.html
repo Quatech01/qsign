@@ -980,7 +980,13 @@ if ('serviceWorker' in navigator) {
 
 // ── WebAuthn / Fingerprint ────────────────────────────────────────────────────
 function _b64ToBuffer(b64url) {
-  const b64 = b64url.replace(/-/g,'+').replace(/_/g,'/');
+  if (!b64url) return new ArrayBuffer(0);
+  // Already a buffer-like object (e.g. Uint8Array or ArrayBuffer)
+  if (b64url instanceof ArrayBuffer) return b64url;
+  if (ArrayBuffer.isView(b64url)) return b64url.buffer;
+  // Numeric-keyed object (Buffer serialised via JSON)
+  if (typeof b64url === 'object') return new Uint8Array(Object.values(b64url)).buffer;
+  const b64 = String(b64url).replace(/-/g,'+').replace(/_/g,'/');
   return Uint8Array.from(atob(b64), c => c.charCodeAt(0)).buffer;
 }
 function _bufToB64(buf) {
