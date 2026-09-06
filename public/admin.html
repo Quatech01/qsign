@@ -944,7 +944,7 @@ function startHeartbeat() {
   _heartbeat = setInterval(async () => {
     if (!TOKEN) return;
     try { await api('GET', '/api/auth/me'); } catch { /* SESSION_DISPLACED handled inside api() */ }
-  }, 60_000);
+  }, 5_000);
 }
 
 function doLogout() {
