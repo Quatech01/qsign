@@ -1625,7 +1625,10 @@ async function api(method, path, body, auth = true) {
   };
   const r = await fetch(path, opts);
   const d = await r.json();
-  if (!r.ok) { const e = new Error(d.error || r.status); Object.assign(e, d); throw e; }
+  if (!r.ok) {
+    if (d.code === 'SESSION_DISPLACED') { doLogout(); }
+    const e = new Error(d.error || r.status); Object.assign(e, d); throw e;
+  }
   return d;
 }
 

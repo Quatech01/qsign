@@ -40,7 +40,10 @@ router.post('/login', async (req, res) => {
       if (!totpOk) return res.status(401).json({ error: 'Invalid authenticator code' });
     }
 
-    const token = generateToken({ sub: u.id, role: u.role, name: u.name, company_id: company.id });
+    const { rows: [sv] } = await pool.query(
+      'UPDATE users SET session_ver = session_ver + 1 WHERE id=$1 RETURNING session_ver', [u.id]
+    );
+    const token = generateToken({ sub: u.id, role: u.role, name: u.name, company_id: company.id, sv: sv.session_ver });
     res.json({
       token,
       user: { id: u.id, name: u.name, email: u.email, role: u.role, department: u.department, staff_id: u.staff_id },

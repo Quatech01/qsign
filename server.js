@@ -66,10 +66,10 @@ app.post('/api/companies/signup', async (req, res) => {
     );
     const hash = await bcrypt.hash(password, 12);
     const { rows: [u] } = await pool.query(
-      "INSERT INTO users (name,email,password_hash,role,company_id) VALUES ($1,$2,$3,'admin',$4) RETURNING id,name,email,role",
+      "INSERT INTO users (name,email,password_hash,role,company_id,session_ver) VALUES ($1,$2,$3,'admin',$4,1) RETURNING id,name,email,role",
       [admin_name.trim(), admin_email.toLowerCase().trim(), hash, company.id]
     );
-    const token = generateToken({ sub: u.id, role: u.role, name: u.name, company_id: company.id });
+    const token = generateToken({ sub: u.id, role: u.role, name: u.name, company_id: company.id, sv: 1 });
     res.status(201).json({
       token,
       user: u,
