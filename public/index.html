@@ -477,6 +477,7 @@ let histPage   = 1;
 let histTotal  = 0;
 let tickTimer  = null;
 let gpsTimer   = null;
+let _heartbeat = null;
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 async function boot() {
@@ -484,6 +485,7 @@ async function boot() {
     try {
       await api('GET', '/api/auth/me');
       showApp();
+      startHeartbeat();
     } catch {
       // Stale token — clear and show login
       TOKEN = null; USER = null;
@@ -654,7 +656,16 @@ function cancelTotp() {
   document.getElementById('login-err').style.display = 'none';
 }
 
+function startHeartbeat() {
+  clearInterval(_heartbeat);
+  _heartbeat = setInterval(async () => {
+    if (!TOKEN) return;
+    try { await api('GET', '/api/auth/me'); } catch { /* SESSION_DISPLACED handled inside api() */ }
+  }, 60_000);
+}
+
 function doLogout() {
+  clearInterval(_heartbeat);
   TOKEN = null; USER = null;
   localStorage.removeItem('qs_token');
   localStorage.removeItem('qs_user');

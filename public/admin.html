@@ -747,7 +747,8 @@ tr:hover td{background:var(--faint)}
 
 <script>
 // ── State ─────────────────────────────────────────────────────────────────────
-let TOKEN    = localStorage.getItem('qs_token');
+let TOKEN      = localStorage.getItem('qs_token');
+let _heartbeat = null;
 let USER     = JSON.parse(localStorage.getItem('qs_user') || 'null');
 let editId   = null;
 let workerId = null;
@@ -774,6 +775,7 @@ async function boot() {
       loadWorkerList();
       setLivePolling();
       setDefaultDates();
+      startHeartbeat();
     } catch (e) {
       // Token is stale (no company_id) — clear it and show login
       TOKEN = null; USER = null;
@@ -937,7 +939,16 @@ function cancelAdminTotp() {
   document.getElementById('adm-err').style.display = 'none';
 }
 
+function startHeartbeat() {
+  clearInterval(_heartbeat);
+  _heartbeat = setInterval(async () => {
+    if (!TOKEN) return;
+    try { await api('GET', '/api/auth/me'); } catch { /* SESSION_DISPLACED handled inside api() */ }
+  }, 60_000);
+}
+
 function doLogout() {
+  clearInterval(_heartbeat);
   TOKEN = null; USER = null;
   localStorage.removeItem('qs_token');
   localStorage.removeItem('qs_user');
