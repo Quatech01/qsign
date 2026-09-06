@@ -40,10 +40,20 @@ router.post('/login', async (req, res) => {
       if (!totpOk) return res.status(401).json({ error: 'Invalid authenticator code' });
     }
 
-    const { rows: [sv] } = await pool.query(
-      'UPDATE users SET session_ver = session_ver + 1 WHERE id=$1 RETURNING session_ver', [u.id]
-    );
-    const token = generateToken({ sub: u.id, role: u.role, name: u.name, company_id: company.id, sv: sv.session_ver });
+    // Increment session version (single-device enforcement).
+    // Isolated try/catch so a migration hiccup never blocks login.
+    let sv_val;
+    try {
+      const { rows: [sv] } = await pool.query(
+        'UPDATE users SET session_ver = session_ver + 1 WHERE id=$1 RETURNING session_ver', [u.id]
+      );
+      sv_val = sv?.session_ver;
+    } catch (svErr) {
+      console.error('[login] session_ver update failed:', svErr.message);
+    }
+    const tokenPayload = { sub: u.id, role: u.role, name: u.name, company_id: company.id };
+    if (sv_val !== undefined) tokenPayload.sv = sv_val;
+    const token = generateToken(tokenPayload);
     res.json({
       token,
       user: { id: u.id, name: u.name, email: u.email, role: u.role, department: u.department, staff_id: u.staff_id },

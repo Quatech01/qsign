@@ -165,12 +165,18 @@ router.post('/login/verify', async (req, res) => {
       'SELECT name, company_code FROM companies WHERE id=$1', [cred.company_id]
     );
 
-    const { rows: [sv] } = await pool.query(
-      'UPDATE users SET session_ver = session_ver + 1 WHERE id=$1 RETURNING session_ver', [cred.uid]
-    );
-    const token = generateToken({
-      sub: cred.uid, role: cred.role, name: cred.uname, company_id: cred.company_id, sv: sv.session_ver,
-    });
+    let sv_val;
+    try {
+      const { rows: [sv] } = await pool.query(
+        'UPDATE users SET session_ver = session_ver + 1 WHERE id=$1 RETURNING session_ver', [cred.uid]
+      );
+      sv_val = sv?.session_ver;
+    } catch (svErr) {
+      console.error('[webauthn] session_ver update failed:', svErr.message);
+    }
+    const tokenPayload = { sub: cred.uid, role: cred.role, name: cred.uname, company_id: cred.company_id };
+    if (sv_val !== undefined) tokenPayload.sv = sv_val;
+    const token = generateToken(tokenPayload);
 
     res.json({
       token,
