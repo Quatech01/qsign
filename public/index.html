@@ -126,6 +126,23 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .logout-btn{width:100%;padding:.7rem;border-radius:10px;border:1.5px solid var(--border);background:transparent;color:var(--red);font-size:.9rem;font-weight:700;cursor:pointer;margin-top:1rem;transition:all .15s}
 .logout-btn:hover{background:var(--red-lt)}
 
+/* USER DROPDOWN MENU */
+.user-menu{position:absolute;top:calc(var(--nav-h) - 4px + var(--safe-top));right:.75rem;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:.5rem;min-width:200px;z-index:200;box-shadow:0 8px 32px rgba(0,0,0,.22);display:none}
+.user-menu.open{display:block}
+.user-menu-header{padding:.6rem .85rem .75rem;border-bottom:1px solid var(--border);margin-bottom:.3rem}
+.user-menu-name{font-weight:800;font-size:.9rem}
+.user-menu-email{font-size:.72rem;color:var(--muted);margin-top:.1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.menu-item{display:flex;align-items:center;gap:.65rem;width:100%;padding:.6rem .85rem;border:none;background:none;color:var(--text);font-size:.88rem;font-weight:600;cursor:pointer;border-radius:10px;text-align:left;font-family:inherit;transition:background .12s}
+.menu-item:hover{background:var(--faint)}
+.menu-item svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;opacity:.7}
+.menu-item.danger{color:var(--red)}
+.menu-divider{height:1px;background:var(--border);margin:.3rem 0}
+
+/* PROFILE SUB-NAV */
+.profile-subnav{display:flex;gap:.4rem;padding:.1rem 0 .75rem}
+.profile-subnav button{flex:1;padding:.55rem .5rem;border:1.5px solid var(--border);border-radius:10px;background:none;color:var(--muted);font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s}
+.profile-subnav button.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+
 /* Loader */
 .spinner{display:inline-block;width:20px;height:20px;border:2.5px solid var(--faint);border-top-color:var(--blue);border-radius:50%;animation:sp .6s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
@@ -246,10 +263,35 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 <div id="screen-app" class="screen">
   <div class="topbar">
     <span class="topbar-logo">Qsign</span>
-    <div class="topbar-user">
-      <span id="user-name-top"></span>
+    <button class="topbar-user" onclick="toggleUserMenu()" style="background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:.4rem;color:var(--text);font-family:inherit;padding:.25rem .1rem" aria-label="Account menu">
+      <span id="user-name-top" style="font-size:.8rem;color:var(--muted)"></span>
       <div class="avatar" id="user-avatar"></div>
+    </button>
+  </div>
+
+  <!-- User dropdown menu -->
+  <div class="user-menu" id="user-menu">
+    <div class="user-menu-header">
+      <div class="user-menu-name" id="menu-user-name"></div>
+      <div class="user-menu-email" id="menu-user-email"></div>
     </div>
+    <button class="menu-item" onclick="openProfileSection('profile')">
+      <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Profile
+    </button>
+    <button class="menu-item" onclick="openProfileSection('security')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      Security
+    </button>
+    <button class="menu-item" onclick="openProfileSection('help')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Help
+    </button>
+    <div class="menu-divider"></div>
+    <button class="menu-item danger" onclick="doLogout()">
+      <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Sign Out
+    </button>
   </div>
 
   <!-- HOME TAB -->
@@ -309,68 +351,99 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 
   <!-- PROFILE TAB -->
   <div id="tab-profile" class="main-scroll" style="display:none">
-    <div class="profile-card">
-      <div class="profile-avatar" id="profile-avatar"></div>
-      <div class="profile-name" id="profile-name"></div>
-      <div class="profile-meta" id="profile-meta"></div>
-      <button class="logout-btn" onclick="doLogout()">Sign Out</button>
-    </div>
-    <div id="admin-link-wrap" style="display:none">
-      <a href="/admin.html" style="display:block;text-align:center;padding:.7rem;border-radius:10px;background:var(--blue);color:#fff;font-weight:700;font-size:.875rem;text-decoration:none;margin-top:.5rem">Open Admin Dashboard →</a>
+
+    <!-- Sub-nav -->
+    <div class="profile-subnav">
+      <button id="pnav-profile"  class="active" onclick="switchProfileSection('profile')">Profile</button>
+      <button id="pnav-security" onclick="switchProfileSection('security')">Security</button>
+      <button id="pnav-help"     onclick="switchProfileSection('help')">Help</button>
     </div>
 
-    <!-- Security section -->
-    <div style="margin-top:1.25rem;background:var(--panel);border-radius:14px;padding:1.1rem;border:1px solid var(--border,#e2e8f0)">
-      <div style="font-weight:700;font-size:.95rem;margin-bottom:1rem">Security</div>
+    <!-- ── PROFILE sub-section ── -->
+    <div id="psec-profile">
+      <div class="profile-card">
+        <div class="profile-avatar" id="profile-avatar"></div>
+        <div class="profile-name" id="profile-name"></div>
+        <div class="profile-meta" id="profile-meta"></div>
+        <button class="logout-btn" onclick="doLogout()">Sign Out</button>
+      </div>
+      <div id="admin-link-wrap" style="display:none;margin-top:.75rem">
+        <a href="/admin.html" style="display:block;text-align:center;padding:.7rem;border-radius:10px;background:var(--blue);color:#fff;font-weight:700;font-size:.875rem;text-decoration:none">Open Admin Dashboard →</a>
+      </div>
+    </div>
 
-      <!-- Q-Authenticator / TOTP -->
-      <div style="margin-bottom:1.1rem">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
-          <span style="font-size:.875rem;font-weight:600">Q-Authenticator</span>
-          <span id="w-totp-badge" style="font-size:.72rem;padding:.2rem .6rem;border-radius:999px;background:var(--faint);color:var(--muted);font-weight:700">OFF</span>
-        </div>
-        <p style="font-size:.78rem;color:var(--muted,#94a3b8);margin-bottom:.65rem">Use 6-digit codes from Q-Authenticator app as a second sign-in factor.</p>
+    <!-- ── SECURITY sub-section ── -->
+    <div id="psec-security" style="display:none">
+      <div style="background:var(--panel);border-radius:14px;padding:1.1rem;border:1px solid var(--border)">
+        <div style="font-weight:700;font-size:.95rem;margin-bottom:1rem">Security</div>
 
-        <!-- setup panel (TOTP off) -->
-        <div id="w-totp-setup-panel">
-          <button onclick="w_tfa_startSetup()" style="width:100%;padding:.6rem;border:1.5px solid var(--border,#e2e8f0);border-radius:9px;background:none;color:var(--blue,#2563eb);font-weight:600;font-size:.85rem;cursor:pointer">Set up Q-Authenticator</button>
-        </div>
-
-        <!-- QR panel -->
-        <div id="w-totp-qr-panel" style="display:none">
-          <p style="font-size:.78rem;color:var(--muted,#94a3b8);margin-bottom:.5rem">Scan this QR code with Q-Authenticator, then enter the 6-digit code to confirm.</p>
-          <img id="w-totp-qr-img" style="width:160px;height:160px;border-radius:8px;display:block;margin:.5rem auto">
-          <input type="text" id="w-totp-code" placeholder="000000" inputmode="numeric" maxlength="6" style="width:100%;padding:.65rem;border:1.5px solid var(--border,#e2e8f0);border-radius:9px;font-size:1.25rem;letter-spacing:.3em;text-align:center;margin:.5rem 0;background:var(--panel);color:var(--text,#0f172a);outline:none">
-          <div style="display:flex;gap:.5rem">
-            <button onclick="w_tfa_enable()" style="flex:1;padding:.6rem;border:none;border-radius:9px;background:var(--blue,#2563eb);color:#fff;font-weight:600;font-size:.85rem;cursor:pointer">Confirm &amp; Enable</button>
-            <button onclick="w_tfa_cancelSetup()" style="padding:.6rem .9rem;border:none;border-radius:9px;background:var(--border,#e2e8f0);color:var(--text,#0f172a);font-size:.85rem;cursor:pointer">Cancel</button>
+        <!-- Q-Authenticator -->
+        <div style="margin-bottom:1.1rem">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
+            <span style="font-size:.875rem;font-weight:600">Q-Authenticator</span>
+            <span id="w-totp-badge" style="font-size:.72rem;padding:.2rem .6rem;border-radius:999px;background:var(--faint);color:var(--muted);font-weight:700">OFF</span>
           </div>
+          <p style="font-size:.78rem;color:var(--muted);margin-bottom:.65rem">Use 6-digit codes from Q-Authenticator app as a second sign-in factor.</p>
+          <div id="w-totp-setup-panel">
+            <button onclick="w_tfa_startSetup()" style="width:100%;padding:.6rem;border:1.5px solid var(--border);border-radius:9px;background:none;color:var(--blue);font-weight:600;font-size:.85rem;cursor:pointer">Set up Q-Authenticator</button>
+          </div>
+          <div id="w-totp-qr-panel" style="display:none">
+            <p style="font-size:.78rem;color:var(--muted);margin-bottom:.5rem">Scan this QR code with Q-Authenticator, then enter the 6-digit code to confirm.</p>
+            <img id="w-totp-qr-img" style="width:160px;height:160px;border-radius:8px;display:block;margin:.5rem auto">
+            <input type="text" id="w-totp-code" placeholder="000000" inputmode="numeric" maxlength="6" style="width:100%;padding:.65rem;border:1.5px solid var(--border);border-radius:9px;font-size:1.25rem;letter-spacing:.3em;text-align:center;margin:.5rem 0;background:var(--panel);color:var(--text);outline:none">
+            <div style="display:flex;gap:.5rem">
+              <button onclick="w_tfa_enable()" style="flex:1;padding:.6rem;border:none;border-radius:9px;background:var(--blue);color:#fff;font-weight:600;font-size:.85rem;cursor:pointer">Confirm &amp; Enable</button>
+              <button onclick="w_tfa_cancelSetup()" style="padding:.6rem .9rem;border:none;border-radius:9px;background:var(--border);color:var(--text);font-size:.85rem;cursor:pointer">Cancel</button>
+            </div>
+          </div>
+          <div id="w-totp-disable-panel" style="display:none">
+            <input type="text" id="w-totp-dis-code" placeholder="000000" inputmode="numeric" maxlength="6" style="width:100%;padding:.65rem;border:1.5px solid var(--border);border-radius:9px;font-size:1.25rem;letter-spacing:.3em;text-align:center;margin-bottom:.5rem;background:var(--panel);color:var(--text);outline:none">
+            <button onclick="w_tfa_disable()" style="width:100%;padding:.6rem;border:none;border-radius:9px;background:var(--red-lt);color:var(--red);font-weight:600;font-size:.85rem;cursor:pointer">Disable Q-Authenticator</button>
+          </div>
+          <div id="w-totp-err" style="color:#ef4444;font-size:.78rem;margin-top:.4rem;display:none"></div>
         </div>
 
-        <!-- disable panel (TOTP on) -->
-        <div id="w-totp-disable-panel" style="display:none">
-          <input type="text" id="w-totp-dis-code" placeholder="000000" inputmode="numeric" maxlength="6" style="width:100%;padding:.65rem;border:1.5px solid var(--border,#e2e8f0);border-radius:9px;font-size:1.25rem;letter-spacing:.3em;text-align:center;margin-bottom:.5rem;background:var(--panel);color:var(--text,#0f172a);outline:none">
-          <button onclick="w_tfa_disable()" style="width:100%;padding:.6rem;border:none;border-radius:9px;background:var(--red-lt);color:var(--red);font-weight:600;font-size:.85rem;cursor:pointer">Disable Q-Authenticator</button>
+        <div style="height:1px;background:var(--border);margin:.75rem 0"></div>
+
+        <!-- Fingerprint -->
+        <div id="w-fp-section" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
+            <span style="font-size:.875rem;font-weight:600">Fingerprint / Face ID</span>
+          </div>
+          <p style="font-size:.78rem;color:var(--muted);margin-bottom:.65rem">Sign in with your fingerprint — no password needed.</p>
+          <div id="w-fp-devices"></div>
+          <div id="w-fp-err" style="color:#ef4444;font-size:.78rem;margin-top:.4rem;display:none;word-break:break-word;overflow-wrap:break-word;line-height:1.45"></div>
+          <button onclick="w_fp_register()" style="width:100%;padding:.6rem;border:1.5px solid var(--border);border-radius:9px;background:none;color:var(--blue);font-weight:600;font-size:.85rem;cursor:pointer;margin-top:.4rem">Register fingerprint</button>
         </div>
-
-        <div id="w-totp-err" style="color:#ef4444;font-size:.78rem;margin-top:.4rem;display:none"></div>
-      </div>
-
-      <div style="height:1px;background:var(--border,#e2e8f0);margin:.75rem 0"></div>
-
-      <!-- Fingerprint -->
-      <div id="w-fp-section" style="display:none">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
-          <span style="font-size:.875rem;font-weight:600">Fingerprint / Face ID</span>
-        </div>
-        <p style="font-size:.78rem;color:var(--muted,#94a3b8);margin-bottom:.65rem">Sign in with your fingerprint — no password needed.</p>
-        <div id="w-fp-devices"></div>
-        <div id="w-fp-err" style="color:#ef4444;font-size:.78rem;margin-top:.4rem;display:none;word-break:break-word;overflow-wrap:break-word;line-height:1.45"></div>
-        <button onclick="w_fp_register()" style="width:100%;padding:.6rem;border:1.5px solid var(--border,#e2e8f0);border-radius:9px;background:none;color:var(--blue,#2563eb);font-weight:600;font-size:.85rem;cursor:pointer;margin-top:.4rem">
-          Register fingerprint
-        </button>
       </div>
     </div>
+
+    <!-- ── HELP sub-section ── -->
+    <div id="psec-help" style="display:none">
+      <div style="background:var(--panel);border-radius:14px;padding:1.25rem;border:1px solid var(--border);display:flex;flex-direction:column;gap:1rem">
+        <div style="font-weight:700;font-size:.95rem">Help & Support</div>
+        <div style="font-size:.85rem;color:var(--muted);line-height:1.6">
+          <strong style="color:var(--text)">How do I clock in?</strong><br>
+          Go to Home tab, make sure you're within the work location, then tap the clock button.
+        </div>
+        <div style="height:1px;background:var(--border)"></div>
+        <div style="font-size:.85rem;color:var(--muted);line-height:1.6">
+          <strong style="color:var(--text)">How do I set up fingerprint login?</strong><br>
+          Go to Security → Register fingerprint. After registering, you can sign in without a password.
+        </div>
+        <div style="height:1px;background:var(--border)"></div>
+        <div style="font-size:.85rem;color:var(--muted);line-height:1.6">
+          <strong style="color:var(--text)">I forgot my password</strong><br>
+          On the login screen tap "Forgot password?" and enter your company code and email to receive a reset code.
+        </div>
+        <div style="height:1px;background:var(--border)"></div>
+        <div style="font-size:.85rem;color:var(--muted);line-height:1.6">
+          <strong style="color:var(--text)">Contact your administrator</strong><br>
+          For account issues, shift corrections, or access problems, speak to your company admin.
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- BOTTOM NAV -->
@@ -775,6 +848,32 @@ function renderRecordCard(r) {
   </div>`;
 }
 
+// ── User dropdown menu ────────────────────────────────────────────────────────
+function toggleUserMenu() {
+  const menu = document.getElementById('user-menu');
+  menu.classList.toggle('open');
+}
+function closeUserMenu() {
+  document.getElementById('user-menu').classList.remove('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.topbar-user') && !e.target.closest('.user-menu'))
+    closeUserMenu();
+});
+function openProfileSection(section) {
+  closeUserMenu();
+  showTab('profile');
+  switchProfileSection(section);
+}
+
+// ── Profile sub-sections ──────────────────────────────────────────────────────
+function switchProfileSection(section) {
+  ['profile','security','help'].forEach(s => {
+    document.getElementById(`psec-${s}`).style.display  = s === section ? '' : 'none';
+    document.getElementById(`pnav-${s}`).classList.toggle('active', s === section);
+  });
+}
+
 // ── Navigation ────────────────────────────────────────────────────────────────
 function showTab(tab) {
   ['home','history','profile'].forEach(t => {
@@ -786,8 +885,14 @@ function showTab(tab) {
 }
 
 function renderUserHeader() {
-  document.getElementById('user-name-top').textContent = USER?.name?.split(' ')[0] || '';
+  const first = USER?.name?.split(' ')[0] || '';
+  document.getElementById('user-name-top').textContent = first;
   document.getElementById('user-avatar').textContent   = initials(USER?.name || '?');
+  // Populate dropdown header
+  const mn = document.getElementById('menu-user-name');
+  const me = document.getElementById('menu-user-email');
+  if (mn) mn.textContent = USER?.name || '';
+  if (me) me.textContent = USER?.email || '';
 }
 
 function renderProfile() {
