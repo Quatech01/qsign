@@ -1,5 +1,5 @@
 'use strict';
-const CACHE = 'qsign-v1';
+const CACHE = 'qsign-v3';
 const SHELL = ['/', '/manifest.json'];
 
 self.addEventListener('install', e => {
@@ -16,16 +16,17 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
+// Network-first: always serve fresh content; cache is offline fallback only
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  if (url.pathname.startsWith('/api/')) return; // always network for API
+  if (url.pathname.startsWith('/api/')) return; // API always goes to network
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request).then(res => {
+    fetch(e.request).then(res => {
       if (res.ok && e.request.method === 'GET') {
         const clone = res.clone();
         caches.open(CACHE).then(c => c.put(e.request, clone));
       }
       return res;
-    }))
+    }).catch(() => caches.match(e.request))
   );
 });
