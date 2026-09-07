@@ -467,9 +467,47 @@ tr:hover td{background:var(--faint)}
           </select>
           <p style="font-size:.72rem;color:var(--muted);margin-top:.4rem">Controls whether payroll totals are calculated per week or per month.</p>
         </div>
-        <div style="display:flex;gap:.75rem">
+        <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center">
           <button class="btn-sm btn-blue" style="padding:.5rem 1.25rem;font-size:.85rem" onclick="saveCompany()">Save Changes</button>
+          <button class="btn-sm" style="padding:.5rem 1.1rem;font-size:.85rem;background:var(--faint);color:var(--text);border:1px solid var(--border);border-radius:8px;cursor:pointer" onclick="toggleChangePassword()">🔑 Change Password</button>
           <span id="co-ok" style="display:none;font-size:.82rem;color:var(--green);align-self:center">Saved ✓</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHANGE PASSWORD (inside tab-company, hidden until toggled) -->
+    <div class="section" id="sec-chpass" style="max-width:520px;display:none;margin-top:1rem">
+      <div class="section-head"><span class="section-title">Change Password</span></div>
+      <div style="padding:1.25rem">
+        <div class="err-box" id="cp-err" style="margin-bottom:.75rem"></div>
+        <div class="field" style="margin-bottom:.85rem">
+          <label style="font-size:.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:.35rem">Current Password</label>
+          <input type="password" id="cp-current" autocomplete="current-password"
+                 style="width:100%;padding:.72rem 1rem;border:1.5px solid var(--border);border-radius:10px;font-size:.95rem;background:var(--panel);color:var(--text);outline:none"
+                 placeholder="Enter current password">
+        </div>
+        <div class="field" style="margin-bottom:.5rem">
+          <label style="font-size:.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:.35rem">New Password</label>
+          <input type="password" id="cp-new" autocomplete="new-password"
+                 style="width:100%;padding:.72rem 1rem;border:1.5px solid var(--border);border-radius:10px;font-size:.95rem;background:var(--panel);color:var(--text);outline:none"
+                 placeholder="Min 8 characters" oninput="cpStrength()">
+          <div style="margin-top:.5rem">
+            <div style="height:5px;border-radius:4px;background:var(--border);overflow:hidden">
+              <div id="cp-bar" style="height:100%;width:0%;border-radius:4px;transition:width .25s,background .25s"></div>
+            </div>
+            <span id="cp-label" style="font-size:.72rem;display:block;margin-top:.3rem"></span>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:1.25rem">
+          <label style="font-size:.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:.35rem">Confirm New Password</label>
+          <input type="password" id="cp-confirm" autocomplete="new-password"
+                 style="width:100%;padding:.72rem 1rem;border:1.5px solid var(--border);border-radius:10px;font-size:.95rem;background:var(--panel);color:var(--text);outline:none"
+                 placeholder="Repeat new password">
+        </div>
+        <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap">
+          <button class="btn-sm btn-blue" style="padding:.5rem 1.25rem;font-size:.85rem" onclick="doChangePassword()">Update Password</button>
+          <button class="btn-sm" style="padding:.5rem 1rem;font-size:.85rem;background:var(--faint);color:var(--muted);border:1px solid var(--border);border-radius:8px;cursor:pointer" onclick="toggleChangePassword()">Cancel</button>
+          <span id="cp-ok" style="display:none;font-size:.82rem;color:var(--green)">Updated ✓</span>
         </div>
       </div>
     </div>
@@ -1625,6 +1663,76 @@ async function saveCompany() {
     document.getElementById('sb-company-code').textContent = 'Code: ' + c.company_code;
     okEl.style.display = 'inline';
   } catch (e) { showErr(errEl, e.message || 'Save failed'); }
+}
+
+// ── Change Password ───────────────────────────────────────────────────────────
+function toggleChangePassword() {
+  const sec = document.getElementById('sec-chpass');
+  const visible = sec.style.display !== 'none';
+  sec.style.display = visible ? 'none' : 'block';
+  if (!visible) {
+    document.getElementById('cp-current').value = '';
+    document.getElementById('cp-new').value = '';
+    document.getElementById('cp-confirm').value = '';
+    document.getElementById('cp-err').style.display = 'none';
+    document.getElementById('cp-ok').style.display = 'none';
+    document.getElementById('cp-bar').style.width = '0%';
+    document.getElementById('cp-label').textContent = '';
+    setTimeout(() => document.getElementById('cp-current').focus(), 50);
+  }
+}
+
+function cpStrength() {
+  const val = document.getElementById('cp-new').value;
+  const bar = document.getElementById('cp-bar');
+  const lbl = document.getElementById('cp-label');
+  let score = 0;
+  if (val.length >= 8)  score++;
+  if (val.length >= 12) score++;
+  if (/[A-Z]/.test(val)) score++;
+  if (/[0-9]/.test(val)) score++;
+  if (/[^A-Za-z0-9]/.test(val)) score++;
+  const levels = [
+    { pct: '0%',   color: '',          text: '' },
+    { pct: '25%',  color: '#ef4444',   text: 'Weak' },
+    { pct: '50%',  color: '#f97316',   text: 'Fair' },
+    { pct: '75%',  color: '#3b82f6',   text: 'Good' },
+    { pct: '90%',  color: '#22c55e',   text: 'Strong' },
+    { pct: '100%', color: '#16a34a',   text: 'Very strong' },
+  ];
+  const lvl = levels[Math.min(score, 5)];
+  bar.style.width = val ? lvl.pct : '0%';
+  bar.style.background = lvl.color;
+  lbl.textContent = val ? lvl.text : '';
+  lbl.style.color = lvl.color;
+}
+
+async function doChangePassword() {
+  const current  = document.getElementById('cp-current').value;
+  const newPass  = document.getElementById('cp-new').value;
+  const confirm  = document.getElementById('cp-confirm').value;
+  const errEl    = document.getElementById('cp-err');
+  const okEl     = document.getElementById('cp-ok');
+  errEl.style.display = 'none'; okEl.style.display = 'none';
+
+  if (!current || !newPass || !confirm) { showErr(errEl, 'All fields are required'); return; }
+  if (newPass.length < 8) { showErr(errEl, 'New password must be at least 8 characters'); return; }
+  if (newPass !== confirm) { showErr(errEl, 'Passwords do not match'); return; }
+
+  try {
+    const r = await api('POST', '/api/auth/change-password', { current_password: current, new_password: newPass });
+    // Refresh token so this session stays valid (other devices are now kicked out)
+    TOKEN = r.token;
+    localStorage.setItem('qs_token', TOKEN);
+    startHeartbeat();
+    okEl.style.display = 'inline';
+    document.getElementById('cp-current').value = '';
+    document.getElementById('cp-new').value = '';
+    document.getElementById('cp-confirm').value = '';
+    document.getElementById('cp-bar').style.width = '0%';
+    document.getElementById('cp-label').textContent = '';
+    setTimeout(() => { okEl.style.display = 'none'; toggleChangePassword(); }, 2500);
+  } catch (e) { showErr(errEl, e.message || 'Password change failed'); }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

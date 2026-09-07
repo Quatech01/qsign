@@ -3,7 +3,7 @@ const router    = require('express').Router();
 const bcrypt    = require('bcryptjs');
 const speakeasy = require('speakeasy');
 const pool      = require('../lib/db');
-const { generateToken, requireAuth } = require('../lib/auth');
+const { generateToken, requireAuth, requireAdmin } = require('../lib/auth');
 
 router.post('/login', async (req, res) => {
   const { company_code, email, staff_id, password, totp_code } = req.body || {};
@@ -60,6 +60,41 @@ router.post('/login', async (req, res) => {
       company: { name: company.name, company_code: company.company_code },
     });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Login failed' }); }
+});
+
+router.post('/change-password', requireAdmin, async (req, res) => {
+  const { current_password, new_password } = req.body || {};
+  if (!current_password || !new_password)
+    return res.status(400).json({ error: 'Both fields are required' });
+  if (new_password.length < 8)
+    return res.status(400).json({ error: 'New password must be at least 8 characters' });
+  if (new_password === current_password)
+    return res.status(400).json({ error: 'New password must be different from your current password' });
+
+  try {
+    const { rows: [u] } = await pool.query(
+      'SELECT id, password_hash FROM users WHERE id=$1 AND active=TRUE', [req.user.sub]
+    );
+    if (!u) return res.status(401).json({ error: 'User not found' });
+
+    const ok = await bcrypt.compare(current_password, u.password_hash);
+    if (!ok) return res.status(401).json({ error: 'Current password is incorrect' });
+
+    const hash = await bcrypt.hash(new_password, 12);
+
+    // Update password + bump session_ver so all OTHER devices are kicked out
+    const { rows: [sv] } = await pool.query(
+      'UPDATE users SET password_hash=$1, session_ver=session_ver+1 WHERE id=$2 RETURNING session_ver',
+      [hash, u.id]
+    );
+
+    // Return fresh token so THIS session stays valid
+    const token = generateToken({ sub: req.user.sub, role: req.user.role, name: req.user.name, company_id: req.user.company_id, sv: sv.session_ver });
+    res.json({ message: 'Password updated', token });
+  } catch (err) {
+    console.error('[change-password]', err);
+    res.status(500).json({ error: 'Password change failed — please try again' });
+  }
 });
 
 router.get('/me', requireAuth, async (req, res) => {
