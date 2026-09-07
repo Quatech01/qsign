@@ -785,9 +785,9 @@ tr:hover td{background:var(--faint)}
 
 <script>
 // ── State ─────────────────────────────────────────────────────────────────────
-let TOKEN      = localStorage.getItem('qs_token');
+let TOKEN      = localStorage.getItem('qs_admin_token');
 let _heartbeat = null;
-let USER     = JSON.parse(localStorage.getItem('qs_user') || 'null');
+let USER     = JSON.parse(localStorage.getItem('qs_admin_user') || 'null');
 let editId   = null;
 let workerId = null;
 let locId    = null;
@@ -817,8 +817,8 @@ async function boot() {
     } catch (e) {
       // Token is stale (no company_id) — clear it and show login
       TOKEN = null; USER = null;
-      localStorage.removeItem('qs_token');
-      localStorage.removeItem('qs_user');
+      localStorage.removeItem('qs_admin_token');
+      localStorage.removeItem('qs_admin_user');
     }
   }
 }
@@ -946,8 +946,8 @@ async function doAdminLogin() {
     }
     if (r.user?.role !== 'admin') { showErr(errEl, 'Admin access required'); return; }
     TOKEN = r.token; USER = r.user;
-    localStorage.setItem('qs_token', TOKEN);
-    localStorage.setItem('qs_user',  JSON.stringify(USER));
+    localStorage.setItem('qs_admin_token', TOKEN);
+    localStorage.setItem('qs_admin_user',  JSON.stringify(USER));
     boot();
   } catch (e) { showErr(errEl, e.message || 'Login failed'); }
 }
@@ -962,8 +962,8 @@ async function doAdminTotpVerify() {
     const r = await api('POST', '/api/auth/login', { ..._admPending, totp_code }, false);
     if (r.user?.role !== 'admin') { showErr(errEl, 'Admin access required'); return; }
     TOKEN = r.token; USER = r.user;
-    localStorage.setItem('qs_token', TOKEN);
-    localStorage.setItem('qs_user',  JSON.stringify(USER));
+    localStorage.setItem('qs_admin_token', TOKEN);
+    localStorage.setItem('qs_admin_user',  JSON.stringify(USER));
     _admPending = null;
     boot();
   } catch (e) { showErr(errEl, e.message || 'Invalid code — try again'); }
@@ -988,8 +988,8 @@ function startHeartbeat() {
 function doLogout() {
   clearInterval(_heartbeat);
   TOKEN = null; USER = null;
-  localStorage.removeItem('qs_token');
-  localStorage.removeItem('qs_user');
+  localStorage.removeItem('qs_admin_token');
+  localStorage.removeItem('qs_admin_user');
   location.reload();
 }
 
@@ -1723,7 +1723,7 @@ async function doChangePassword() {
     const r = await api('POST', '/api/auth/change-password', { current_password: current, new_password: newPass });
     // Refresh token so this session stays valid (other devices are now kicked out)
     TOKEN = r.token;
-    localStorage.setItem('qs_token', TOKEN);
+    localStorage.setItem('qs_admin_token', TOKEN);
     startHeartbeat();
     okEl.style.display = 'inline';
     document.getElementById('cp-current').value = '';
