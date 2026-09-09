@@ -24,8 +24,9 @@ app.use('/api/auth',            require('./routes/auth'));
 app.use('/api/auth',            require('./routes/reset'));
 app.use('/api/auth/totp',       require('./routes/totp'));
 app.use('/api/auth/webauthn',   require('./routes/webauthn'));
-app.use('/api/attendance', require('./routes/attendance'));
-app.use('/api/admin',      require('./routes/admin'));
+app.use('/api/attendance',   require('./routes/attendance'));
+app.use('/api/admin',        require('./routes/admin'));
+app.use('/api/superadmin',   require('./routes/superadmin'));
 
 // ── Public self-service signup ────────────────────────────────────────────────
 // Simple in-memory rate limiter: max 5 signups per IP per hour
