@@ -338,7 +338,7 @@ tbody td strong{font-weight:600}
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
-let KEY = sessionStorage.getItem('sa_key') || '';
+let KEY = '';
 const S = {
   usr: { page:1, q:'', role:'' },
   att: { page:1, live:'', date_from:'', date_to:'' },
@@ -379,7 +379,6 @@ async function unlock() {
   hideErr();
   try {
     _cachedStats = await api('GET', '/api/superadmin/stats');
-    sessionStorage.setItem('sa_key', KEY);
     showApp();
   } catch (err) {
     KEY = '';
@@ -412,8 +411,6 @@ function showApp() {
 }
 
 function signOut() {
-  _loggedOut = true;
-  sessionStorage.removeItem('sa_key');
   KEY = '';
   _cachedStats = null;
   $('lock-screen').hidden = false;
@@ -620,13 +617,7 @@ function toast(msg, type='') {
 document.addEventListener('DOMContentLoaded', () => {
   initEye();
 
-  if (KEY) {
-    api('GET','/api/superadmin/stats').then(d=>{
-      if (!_loggedOut) { _cachedStats=d; showApp(); }
-    }).catch(()=>{
-      KEY=''; sessionStorage.removeItem('sa_key');
-    });
-  }
+  /* No auto-verify — user must enter key on every visit */
 
   $('key-input').addEventListener('keydown', e => { if(e.key==='Enter') unlock(); });
   $('unlock-btn').addEventListener('click', unlock);
