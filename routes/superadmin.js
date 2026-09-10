@@ -16,10 +16,14 @@ function guardKey(req, res) {
     res.status(429).json({ error: `Too many attempts — try again in ${mins}m` });
     return false;
   }
-  if (req.headers['x-superadmin-key'] !== KEY) {
-    rec.n += 1;
-    if (rec.n >= 5) { rec.until = now + 15 * 60_000; rec.n = 0; }
-    _attempts.set(ip, rec);
+  const provided = req.headers['x-superadmin-key'];
+  if (provided !== KEY) {
+    // Only count as a failed attempt when a non-empty key was deliberately sent
+    if (provided) {
+      rec.n += 1;
+      if (rec.n >= 5) { rec.until = now + 15 * 60_000; rec.n = 0; }
+      _attempts.set(ip, rec);
+    }
     res.status(401).json({ error: 'Invalid key' });
     return false;
   }
