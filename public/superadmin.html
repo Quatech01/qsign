@@ -335,14 +335,23 @@ const S = {
 
 /* API */
 async function api(method, path, body) {
-  const r = await fetch(path, {
-    method,
-    headers: { 'Content-Type':'application/json', 'x-superadmin-key': KEY },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
-  const d = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
-  return d;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    const r = await fetch(path, {
+      method, signal: ctrl.signal,
+      headers: { 'Content-Type':'application/json', 'x-superadmin-key': KEY },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+    return d;
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error('Request timed out — server took too long to respond');
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /* AUTH */
