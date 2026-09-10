@@ -1315,23 +1315,52 @@ function updateWmRadiusCircle() {
   if (wmCircle) wmCircle.setRadius(r);
 }
 
+// UK postcode pattern (full or partial)
+const UK_POSTCODE_RE = /^[A-Z]{1,2}\d[A-Z\d]?(\s*\d[A-Z]{2})?$/i;
+
 let wmSearchIdx = -1;
 function onWmMapSearch(q) {
   clearTimeout(wmSearchTimer);
   wmSearchIdx = -1;
   const box = document.getElementById('wm-map-search-results');
-  if (q.length < 3) { box.style.display = 'none'; return; }
+  const trimmed = q.trim();
+  if (trimmed.length < 2) { box.style.display = 'none'; return; }
   box.innerHTML = '<div class="msr-loading">Searching…</div>';
   box.style.display = 'block';
   wmSearchTimer = setTimeout(async () => {
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=8&addressdetails=1`);
-      const results = await res.json();
-      if (!results.length) { box.innerHTML = '<div class="msr-loading">No results found</div>'; return; }
+      let results = [];
+      if (UK_POSTCODE_RE.test(trimmed)) {
+        // postcodes.io — handles every UK postcode perfectly
+        const clean = trimmed.replace(/\s+/g, '');
+        const isFullPostcode = /^[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}$/i.test(clean);
+        if (isFullPostcode) {
+          const r = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(clean)}`).then(x => x.json());
+          if (r.status === 200 && r.result) {
+            results = [{ lat: r.result.latitude, lon: r.result.longitude, display_name: `${r.result.postcode} — ${r.result.admin_district}, ${r.result.country}` }];
+          }
+        } else {
+          // partial postcode — autocomplete
+          const r = await fetch(`https://api.postcodes.io/postcodes?q=${encodeURIComponent(trimmed)}&limit=8`).then(x => x.json());
+          if (r.status === 200 && r.result) {
+            results = r.result.map(p => ({ lat: p.latitude, lon: p.longitude, display_name: `${p.postcode} — ${p.admin_district}, ${p.country}` }));
+          }
+        }
+        // Fall through to Nominatim if postcodes.io returned nothing
+        if (!results.length) {
+          const nr = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(trimmed)}&format=json&limit=6&countrycodes=gb&addressdetails=1`).then(x => x.json());
+          results = nr.map(r => ({ lat: r.lat, lon: r.lon, display_name: r.display_name }));
+        }
+      } else {
+        // Regular address search — UK priority
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(trimmed)}&format=json&limit=8&countrycodes=gb&addressdetails=1`);
+        results = (await res.json()).map(r => ({ lat: r.lat, lon: r.lon, display_name: r.display_name }));
+      }
+      if (!results.length) { box.innerHTML = '<div class="msr-loading">No results found — try a postcode or full address</div>'; return; }
       box.innerHTML = results.map((r, i) =>
         `<div class="msr-item" onclick="wmSelectResult(${i})" data-lat="${r.lat}" data-lon="${r.lon}" data-name="${encodeURIComponent(r.display_name)}">${r.display_name}</div>`
       ).join('');
-    } catch { box.style.display = 'none'; }
+    } catch { box.innerHTML = '<div class="msr-loading">Search failed — check your connection</div>'; }
   }, 350);
 }
 
