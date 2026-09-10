@@ -1258,7 +1258,10 @@ async function loadWorkers() {
           <td>${rateCell}</td>
           <td>${payCell}</td>
           <td>${w.active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-red">Deactivated</span>'}</td>
-          <td><button class="btn-sm btn-outline" onclick="openWorkerModal(${JSON.stringify(w).replace(/"/g,'&quot;')})">Edit</button></td>
+          <td style="display:flex;gap:6px;align-items:center">
+            <button class="btn-sm btn-outline" onclick="openWorkerModal(${JSON.stringify(w).replace(/"/g,'&quot;')})">Edit</button>
+            <button class="btn-sm" style="border-color:#dc2626;color:#dc2626" onclick="deleteWorker(${w.id},'${w.name.replace(/'/g,"\\'")}')">Delete</button>
+          </td>
         </tr>`;
       }).join('')
     : '<tr class="empty-row"><td colspan="10">No workers yet</td></tr>';
@@ -1322,7 +1325,7 @@ function onWmMapSearch(q) {
   box.style.display = 'block';
   wmSearchTimer = setTimeout(async () => {
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=6&countrycodes=gb&addressdetails=1`);
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=8&addressdetails=1`);
       const results = await res.json();
       if (!results.length) { box.innerHTML = '<div class="msr-loading">No results found</div>'; return; }
       box.innerHTML = results.map((r, i) =>
@@ -1447,6 +1450,15 @@ async function saveWorker() {
   } catch (e) { showErr(errEl, e.message || 'Save failed'); }
 }
 
+async function deleteWorker(id, name) {
+  if (!confirm(`Delete ${name}?\n\nThis will permanently remove the worker and cannot be undone.`)) return;
+  try {
+    await api('DELETE', `/api/admin/workers/${id}`);
+    loadWorkers();
+    loadWorkerList();
+  } catch (e) { alert('Delete failed: ' + e.message); }
+}
+
 // ── Locations ─────────────────────────────────────────────────────────────────
 async function loadLocations() {
   try {
@@ -1522,7 +1534,7 @@ function onMapSearch(q) {
   box.style.display = 'block';
   searchTimer = setTimeout(async () => {
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=6&countrycodes=gb&addressdetails=1`);
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=8&addressdetails=1`);
       const results = await res.json();
       if (!results.length) { box.innerHTML = '<div class="msr-loading">No results found</div>'; return; }
       box.innerHTML = results.map((r, i) =>
