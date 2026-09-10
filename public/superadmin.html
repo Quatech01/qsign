@@ -60,7 +60,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);
 .lock-err.show{display:block}
 
 /* ── APP ── */
-#app{display:flex;height:100vh}
+#app{display:flex;height:100vh;position:fixed;top:0;left:0;width:100%;}
 
 .sidebar{width:196px;flex-shrink:0;background:var(--panel);
   border-right:1px solid var(--border);
@@ -392,6 +392,7 @@ function hideErr() { $('lock-err').classList.remove('show'); }
 function showApp() {
   $('lock-screen').hidden = true;
   $('app').hidden = false;
+  window.scrollTo(0, 0);
   switchTab('overview');
 }
 
