@@ -367,6 +367,7 @@ async function api(method, path, body) {
 
 /* AUTH */
 let _cachedStats = null; // reuse stats data from unlock call — avoids a second cold-start request
+let _loggedOut = false;  // guard against auto-verify resolving after sign-out
 
 async function unlock() {
   const k = $('key-input').value.trim();
@@ -411,8 +412,10 @@ function showApp() {
 }
 
 function signOut() {
+  _loggedOut = true;
   sessionStorage.removeItem('sa_key');
   KEY = '';
+  _cachedStats = null;
   $('lock-screen').hidden = false;
   $('app').hidden = true;
   $('key-input').value = '';
@@ -618,7 +621,9 @@ document.addEventListener('DOMContentLoaded', () => {
   initEye();
 
   if (KEY) {
-    api('GET','/api/superadmin/stats').then(d=>{ _cachedStats=d; showApp(); }).catch(()=>{
+    api('GET','/api/superadmin/stats').then(d=>{
+      if (!_loggedOut) { _cachedStats=d; showApp(); }
+    }).catch(()=>{
       KEY=''; sessionStorage.removeItem('sa_key');
     });
   }
