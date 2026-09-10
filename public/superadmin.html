@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QSign Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:           #0d1117;
+  --surface:      #161b22;
+  --surface-up:   #1c2128;
+  --border:       #30363d;
+  --border-soft:  rgba(48,54,61,.5);
+  --accent:       #2563eb;
+  --accent-h:     #1d4ed8;
+  --text:         #c9d1d9;
+  --text-muted:   #7d8590;
+  --text-strong:  #f0f6fc;
+  --live:         #58a6ff;
+  --success:      #3fb950;
+  --success-bg:   rgba(63,185,80,.12);
+  --danger:       #f85149;
+  --danger-bg:    rgba(248,81,73,.12);
+  --warning:      #e3b341;
+  --radius:       6px;
+  --font-mono:    'IBM Plex Mono', 'Menlo', monospace;
+  --font-sans:    'IBM Plex Sans', system-ui, sans-serif;
+}
+
+html, body { height: 100%; background: var(--bg); color: var(--text);
+  font-family: var(--font-sans); font-size: 14px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased; }
+
+/* ── LOCK SCREEN ─────────────────────────────────────── */
+#lock-screen {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100vh; padding: 24px;
+}
+.lock-card { width: 100%; max-width: 360px; }
+.lock-brand {
+  font-family: var(--font-mono); font-size: 1.5rem; font-weight: 700;
+  color: var(--accent); letter-spacing: -.02em; margin-bottom: 3px;
+}
+.lock-sub {
+  font-family: var(--font-mono); font-size: .6rem; color: var(--text-muted);
+  letter-spacing: .14em; text-transform: uppercase; margin-bottom: 44px;
+}
+.lock-lbl {
+  font-size: .72rem; font-weight: 500; color: var(--text-muted);
+  letter-spacing: .07em; text-transform: uppercase; margin-bottom: 8px;
+}
+.lock-input {
+  width: 100%; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text-strong);
+  font-family: var(--font-mono); font-size: .88rem;
+  padding: 10px 14px; outline: none; transition: border-color .15s;
+}
+.lock-input:focus { border-color: var(--accent); }
+.lock-btn {
+  width: 100%; margin-top: 10px; background: var(--accent); border: none;
+  border-radius: var(--radius); color: #fff; font-family: var(--font-sans);
+  font-size: .875rem; font-weight: 600; padding: 11px;
+  cursor: pointer; transition: background .15s;
+}
+.lock-btn:hover { background: var(--accent-h); }
+.lock-err { margin-top: 10px; font-size: .78rem; color: var(--danger); min-height: 1.2em; }
+
+/* ── APP SHELL ────────────────────────────────────────── */
+#app { display: flex; height: 100vh; }
+
+/* SIDEBAR */
+.sidebar {
+  width: 196px; flex-shrink: 0; background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; padding: 24px 0 20px;
+}
+.sb-brand { font-family: var(--font-mono); font-size: 1rem; font-weight: 700;
+  color: var(--accent); padding: 0 20px 2px; }
+.sb-tag { font-family: var(--font-mono); font-size: .58rem; color: var(--text-muted);
+  letter-spacing: .12em; text-transform: uppercase; padding: 0 20px 28px; }
+.nav-list { list-style: none; flex: 1; }
+.nav-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 20px; cursor: pointer;
+  color: var(--text-muted); font-size: .78rem;
+  font-family: var(--font-mono); font-weight: 500; letter-spacing: .04em;
+  border-left: 2px solid transparent;
+  transition: color .12s, border-color .12s; user-select: none;
+}
+.nav-item:hover { color: var(--text); }
+.nav-item.active { color: var(--text-strong); border-left-color: var(--accent); }
+.sb-foot { padding: 0 20px; }
+.signout-btn {
+  width: 100%; background: none; border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text-muted);
+  font-family: var(--font-mono); font-size: .66rem;
+  letter-spacing: .07em; padding: 7px; cursor: pointer;
+  transition: color .12s, border-color .12s;
+}
+.signout-btn:hover { color: var(--text); border-color: var(--text-muted); }
+
+/* MAIN */
+.main { flex: 1; overflow-y: auto; padding: 32px; min-width: 0; }
+.tab-section { display: block; }
+.tab-section[hidden] { display: none; }
+
+.sec-hd { margin-bottom: 24px; }
+.sec-title { font-size: 1.05rem; font-weight: 600; color: var(--text-strong); margin-bottom: 2px; }
+.sec-desc  { font-size: .78rem; color: var(--text-muted); }
+
+/* STAT TILES */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px; margin-bottom: 36px;
+}
+.stat-tile {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px 18px;
+}
+.stat-tile.live { border-color: var(--live); }
+.stat-lbl {
+  font-size: .66rem; font-weight: 500; color: var(--text-muted);
+  letter-spacing: .09em; text-transform: uppercase; margin-bottom: 7px;
+}
+.stat-num {
+  font-family: var(--font-mono); font-size: 2rem; font-weight: 700;
+  color: var(--text-strong); line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.stat-tile.live .stat-num { color: var(--live); }
+
+/* TABLE CONTROLS */
+.tbl-ctrls {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 14px; flex-wrap: wrap;
+}
+.ctrl-input {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text);
+  font-family: var(--font-sans); font-size: .78rem;
+  padding: 6px 10px; outline: none; transition: border-color .15s;
+}
+.ctrl-input:focus { border-color: var(--accent); }
+.ctrl-input[type="date"] { font-family: var(--font-mono); font-size: .74rem; }
+.ctrl-select {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text);
+  font-family: var(--font-sans); font-size: .78rem;
+  padding: 6px 10px; outline: none; cursor: pointer;
+}
+.ctrl-chk-lbl {
+  display: flex; align-items: center; gap: 6px;
+  font-size: .78rem; color: var(--text-muted); cursor: pointer;
+}
+
+/* TABLE */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+thead th {
+  font-family: var(--font-mono); font-size: .62rem; font-weight: 500;
+  color: var(--text-muted); letter-spacing: .09em; text-transform: uppercase;
+  text-align: left; padding: 8px 12px;
+  border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+tbody tr { border-bottom: 1px solid var(--border-soft); transition: background .1s; }
+tbody tr:hover { background: var(--surface-up); }
+tbody td { padding: 10px 12px; vertical-align: middle; color: var(--text); }
+tbody td strong { color: var(--text-strong); font-weight: 500; }
+
+.mono  { font-family: var(--font-mono); font-size: .76rem; }
+.muted { color: var(--text-muted); }
+.num   { font-variant-numeric: tabular-nums; text-align: right; }
+.small { font-size: .72rem; }
+.cell-loading { color: var(--text-muted); padding: 28px 12px; text-align: center; font-style: italic; }
+.cell-empty   { color: var(--text-muted); padding: 28px 12px; text-align: center; }
+.cell-err     { color: var(--danger);     padding: 16px 12px; }
+
+/* BADGES */
+.badge {
+  display: inline-block; font-family: var(--font-mono); font-size: .63rem;
+  font-weight: 500; letter-spacing: .04em; padding: 2px 7px;
+  border-radius: 10px; border: 1px solid transparent;
+}
+.badge.admin   { background: rgba(37,99,235,.14); color: #60a5fa; border-color: rgba(37,99,235,.3); }
+.badge.worker  { background: var(--surface-up); color: var(--text-muted); }
+.badge.active  { background: var(--success-bg); color: var(--success); border-color: rgba(63,185,80,.25); }
+.badge.inactive{ background: var(--danger-bg);  color: var(--danger);  border-color: rgba(248,81,73,.25); }
+
+/* BUTTONS */
+.btn-del {
+  background: none; border: none; color: var(--danger);
+  font-family: var(--font-mono); font-size: .68rem; font-weight: 500;
+  padding: 4px 8px; cursor: pointer; border-radius: 4px;
+  transition: background .12s;
+}
+.btn-del:hover { background: var(--danger-bg); }
+.btn-sm {
+  background: var(--surface-up); border: 1px solid var(--border);
+  border-radius: 4px; color: var(--text);
+  font-family: var(--font-mono); font-size: .66rem;
+  padding: 3px 8px; cursor: pointer; transition: border-color .12s, color .12s;
+}
+.btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+
+/* PAGINATION */
+.pagination {
+  display: flex; align-items: center; gap: 12px; margin-top: 14px;
+  font-size: .74rem; color: var(--text-muted); font-family: var(--font-mono);
+}
+.btn-pg {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 4px; color: var(--text);
+  font-family: var(--font-mono); font-size: .68rem;
+  padding: 4px 10px; cursor: pointer; transition: border-color .12s;
+}
+.btn-pg:hover:not(:disabled) { border-color: var(--accent); }
+.btn-pg:disabled { opacity: .3; cursor: default; }
+
+/* LIVE DOT */
+.live-dot { color: var(--success); animation: blink 1.4s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+/* TOAST */
+#toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--surface-up); border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text-strong);
+  font-size: .8rem; padding: 10px 16px; max-width: 300px;
+  opacity: 0; transform: translateY(10px); pointer-events: none;
+  transition: opacity .2s, transform .2s;
+}
+#toast.show { opacity: 1; transform: none; }
+#toast.err  { border-color: var(--danger); color: var(--danger); }
+</style>
+</head>
+<body>
+
+<!-- ── LOCK SCREEN ─────────────────────────────────────── -->
+<div id="lock-screen">
+  <div class="lock-card">
+    <div class="lock-brand">QSign</div>
+    <div class="lock-sub">Platform Control</div>
+    <div class="lock-lbl">Super-Admin Key</div>
+    <input id="key-input" class="lock-input" type="password"
+           placeholder="Enter your SUPERADMIN_KEY" autocomplete="off">
+    <button id="unlock-btn" class="lock-btn">Unlock</button>
+    <div id="lock-err" class="lock-err"></div>
+  </div>
+</div>
+
+<!-- ── MAIN APP ────────────────────────────────────────── -->
+<div id="app" hidden>
+  <aside class="sidebar">
+    <div class="sb-brand">QSign</div>
+    <div class="sb-tag">Control Panel</div>
+    <ul class="nav-list">
+      <li class="nav-item active" data-tab="overview">Overview</li>
+      <li class="nav-item" data-tab="companies">Companies</li>
+      <li class="nav-item" data-tab="users">Users</li>
+      <li class="nav-item" data-tab="attendance">Attendance</li>
+    </ul>
+    <div class="sb-foot">
+      <button class="signout-btn" id="signout-btn">Sign out</button>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- OVERVIEW -->
+    <section class="tab-section" id="tab-overview">
+      <div class="sec-hd">
+        <div class="sec-title">Platform Overview</div>
+        <div class="sec-desc">Live snapshot across all companies on QSign</div>
+      </div>
+      <div class="stats-grid" id="overview-stats">
+        <div class="cell-loading">Loading…</div>
+      </div>
+    </section>
+
+    <!-- COMPANIES -->
+    <section class="tab-section" id="tab-companies" hidden>
+      <div class="sec-hd">
+        <div class="sec-title">Companies</div>
+        <div class="sec-desc">Every registered company — workers, shifts, and admin contact</div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Company</th><th>Code</th><th>Admin email</th>
+              <th>Workers</th><th>Shifts</th><th>Joined</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="co-tbody">
+            <tr><td colspan="7" class="cell-loading">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- USERS -->
+    <section class="tab-section" id="tab-users" hidden>
+      <div class="sec-hd">
+        <div class="sec-title">Users</div>
+        <div class="sec-desc">All workers and admins — search, filter, and manage status</div>
+      </div>
+      <div class="tbl-ctrls">
+        <input id="usr-q" class="ctrl-input" type="search"
+               placeholder="Search name or email…" style="width:220px">
+        <select id="usr-role" class="ctrl-select">
+          <option value="">All roles</option>
+          <option value="worker">Workers only</option>
+          <option value="admin">Admins only</option>
+        </select>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th><th>Email</th><th>Role</th>
+              <th>Company</th><th>Status</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="usr-tbody">
+            <tr><td colspan="6" class="cell-loading">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination">
+        <button class="btn-pg" id="usr-prev" disabled>&#8592; Prev</button>
+        <span id="usr-info"></span>
+        <button class="btn-pg" id="usr-next" disabled>Next &#8594;</button>
+      </div>
+    </section>
+
+    <!-- ATTENDANCE -->
+    <section class="tab-section" id="tab-att" hidden>
+      <div class="sec-hd">
+        <div class="sec-title">Attendance Log</div>
+        <div class="sec-desc">Every clock-in and clock-out across the entire platform</div>
+      </div>
+      <div class="tbl-ctrls">
+        <input id="att-from" class="ctrl-input" type="date" title="From date">
+        <input id="att-to"   class="ctrl-input" type="date" title="To date">
+        <label class="ctrl-chk-lbl">
+          <input id="att-live" type="checkbox"> Live only
+        </label>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Worker</th><th>Company</th><th>Clock in</th>
+              <th>Clock out</th><th>Hours</th><th>Location</th>
+            </tr>
+          </thead>
+          <tbody id="att-tbody">
+            <tr><td colspan="6" class="cell-loading">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination">
+        <button class="btn-pg" id="att-prev" disabled>&#8592; Prev</button>
+        <span id="att-info"></span>
+        <button class="btn-pg" id="att-next" disabled>Next &#8594;</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+
+let KEY = sessionStorage.getItem('sa_key') || '';
+const S = {
+  usr: { page: 1, q: '', role: '' },
+  att: { page: 1, live: '', date_from: '', date_to: '' },
+};
+
+/* ── API ───────────────────────────────────── */
+async function api(method, path, body) {
+  const r = await fetch(path, {
+    method,
+    headers: { 'Content-Type': 'application/json', 'x-superadmin-key': KEY },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+  return d;
+}
+
+/* ── AUTH ──────────────────────────────────── */
+async function unlock() {
+  const k = $('key-input').value.trim();
+  if (!k) return;
+  KEY = k;
+  $('lock-err').textContent = '';
+  try {
+    await api('GET', '/api/superadmin/stats');
+    sessionStorage.setItem('sa_key', KEY);
+    showApp();
+  } catch (err) {
+    KEY = '';
+    $('lock-err').textContent = /invalid|key/i.test(err.message)
+      ? 'Incorrect key — try again'
+      : 'Could not reach server — check your connection';
+    $('key-input').value = '';
+    $('key-input').focus();
+  }
+}
+
+function showApp() {
+  $('lock-screen').hidden = true;
+  $('app').hidden = false;
+  switchTab('overview');
+}
+
+function signOut() {
+  sessionStorage.removeItem('sa_key');
+  KEY = '';
+  $('lock-screen').hidden = false;
+  $('app').hidden = true;
+  $('key-input').value = '';
+}
+
+/* ── TABS ──────────────────────────────────── */
+function switchTab(tab) {
+  document.querySelectorAll('.nav-item').forEach(el =>
+    el.classList.toggle('active', el.dataset.tab === tab));
+  document.querySelectorAll('.tab-section').forEach(el =>
+    el.hidden = el.id !== `tab-${tab}`);
+  if (tab === 'overview')  loadOverview();
+  if (tab === 'companies') loadCompanies();
+  if (tab === 'users')     loadUsers();
+  if (tab === 'att')       loadAtt();
+}
+
+/* ── OVERVIEW ──────────────────────────────── */
+async function loadOverview() {
+  const el = $('overview-stats');
+  el.innerHTML = '<div class="cell-loading">Loading stats…</div>';
+  try {
+    const d = await api('GET', '/api/superadmin/stats');
+    el.innerHTML = `
+      <div class="stat-tile">
+        <div class="stat-lbl">Companies</div>
+        <div class="stat-num">${d.totalCompanies}</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-lbl">Workers</div>
+        <div class="stat-num">${d.totalWorkers}</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-lbl">Shifts logged</div>
+        <div class="stat-num">${d.totalAttendance}</div>
+      </div>
+      <div class="stat-tile live">
+        <div class="stat-lbl">Live now</div>
+        <div class="stat-num">${d.liveNow}</div>
+      </div>`;
+  } catch (err) {
+    el.innerHTML = `<div class="cell-err">${esc(err.message)}</div>`;
+  }
+}
+
+/* ── COMPANIES ─────────────────────────────── */
+let _coData = [];
+
+async function loadCompanies() {
+  $('co-tbody').innerHTML = '<tr><td colspan="7" class="cell-loading">Loading…</td></tr>';
+  try {
+    _coData = await api('GET', '/api/superadmin/companies');
+    renderCompanies();
+  } catch (err) {
+    $('co-tbody').innerHTML = `<tr><td colspan="7" class="cell-err">${esc(err.message)}</td></tr>`;
+  }
+}
+
+function renderCompanies() {
+  if (!_coData.length) {
+    $('co-tbody').innerHTML = '<tr><td colspan="7" class="cell-empty">No companies registered yet.</td></tr>';
+    return;
+  }
+  $('co-tbody').innerHTML = _coData.map(c => `
+    <tr>
+      <td><strong>${esc(c.name)}</strong></td>
+      <td class="mono">${esc(c.company_code)}</td>
+      <td class="muted small">${esc(c.admin_email || '—')}</td>
+      <td class="num">${c.workers}</td>
+      <td class="num">${c.total_shifts}</td>
+      <td class="muted small">${fmtDate(c.created_at)}</td>
+      <td><button class="btn-del" data-id="${c.id}" data-name="${esc(c.name)}"
+                  onclick="delCompany(this)">Delete</button></td>
+    </tr>`).join('');
+}
+
+window.delCompany = async function(btn) {
+  const id   = parseInt(btn.dataset.id);
+  const name = btn.dataset.name;
+  if (!confirm(`Permanently delete "${name}" and ALL its data?\n\nWorkers, attendance records, and locations will be erased. This cannot be undone.`)) return;
+  try {
+    await api('DELETE', `/api/superadmin/companies/${id}`);
+    _coData = _coData.filter(c => c.id !== id);
+    renderCompanies();
+    toast(`"${name}" deleted`);
+  } catch (err) { toast(err.message, 'err'); }
+};
+
+/* ── USERS ─────────────────────────────────── */
+async function loadUsers() {
+  $('usr-tbody').innerHTML = '<tr><td colspan="6" class="cell-loading">Loading…</td></tr>';
+  const { q, role, page } = S.usr;
+  const p = new URLSearchParams({ page });
+  if (q)    p.set('q', q);
+  if (role) p.set('role', role);
+  try {
+    const d = await api('GET', `/api/superadmin/users?${p}`);
+    renderUsers(d);
+  } catch (err) {
+    $('usr-tbody').innerHTML = `<tr><td colspan="6" class="cell-err">${esc(err.message)}</td></tr>`;
+  }
+}
+
+function renderUsers(d) {
+  $('usr-info').textContent = `${d.total} users · page ${d.page} of ${Math.max(1, d.pages)}`;
+  $('usr-prev').disabled = d.page <= 1;
+  $('usr-next').disabled = d.page >= d.pages;
+
+  if (!d.users.length) {
+    $('usr-tbody').innerHTML = '<tr><td colspan="6" class="cell-empty">No users found.</td></tr>';
+    return;
+  }
+  $('usr-tbody').innerHTML = d.users.map(u => `
+    <tr>
+      <td><strong>${esc(u.name)}</strong></td>
+      <td class="muted small">${esc(u.email)}</td>
+      <td><span class="badge ${u.role}">${u.role}</span></td>
+      <td class="muted small">${esc(u.company_name)} <span class="mono">${esc(u.company_code)}</span></td>
+      <td><span class="badge ${u.active ? 'active' : 'inactive'}">${u.active ? 'Active' : 'Inactive'}</span></td>
+      <td><button class="btn-sm" data-id="${u.id}" data-to="${!u.active}"
+                  onclick="toggleUser(this)">${u.active ? 'Deactivate' : 'Activate'}</button></td>
+    </tr>`).join('');
+}
+
+window.toggleUser = async function(btn) {
+  const id     = parseInt(btn.dataset.id);
+  const active = btn.dataset.to === 'true';
+  try {
+    await api('PATCH', `/api/superadmin/users/${id}`, { active });
+    await loadUsers();
+  } catch (err) { toast(err.message, 'err'); }
+};
+
+/* ── ATTENDANCE ────────────────────────────── */
+async function loadAtt() {
+  $('att-tbody').innerHTML = '<tr><td colspan="6" class="cell-loading">Loading…</td></tr>';
+  const { page, live, date_from, date_to } = S.att;
+  const p = new URLSearchParams({ page });
+  if (live)      p.set('live', '1');
+  if (date_from) p.set('date_from', date_from);
+  if (date_to)   p.set('date_to', date_to);
+  try {
+    const d = await api('GET', `/api/superadmin/attendance?${p}`);
+    renderAtt(d);
+  } catch (err) {
+    $('att-tbody').innerHTML = `<tr><td colspan="6" class="cell-err">${esc(err.message)}</td></tr>`;
+  }
+}
+
+function renderAtt(d) {
+  $('att-info').textContent = `${d.total} records · page ${d.page} of ${Math.max(1, d.pages)}`;
+  $('att-prev').disabled = d.page <= 1;
+  $('att-next').disabled = d.page >= d.pages;
+
+  if (!d.records.length) {
+    $('att-tbody').innerHTML = '<tr><td colspan="6" class="cell-empty">No records found.</td></tr>';
+    return;
+  }
+  $('att-tbody').innerHTML = d.records.map(r => `
+    <tr>
+      <td>
+        <strong>${esc(r.worker_name)}</strong>
+        <br><span class="muted small">${esc(r.worker_email)}</span>
+      </td>
+      <td class="muted small">${esc(r.company_name)}
+        <span class="mono">${esc(r.company_code)}</span></td>
+      <td class="mono small">${fmtDT(r.check_in_time)}</td>
+      <td class="mono small">${r.check_out_time
+        ? fmtDT(r.check_out_time)
+        : '<span class="live-dot">&#9679;</span> Live'}</td>
+      <td class="num">${r.hours_worked ? Number(r.hours_worked).toFixed(2) + 'h' : '—'}</td>
+      <td class="muted small">${esc(r.location_name || '—')}</td>
+    </tr>`).join('');
+}
+
+/* ── HELPERS ───────────────────────────────── */
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+}
+function fmtDT(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short' })
+    + ' ' + d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+}
+let _tt;
+function toast(msg, type = '') {
+  const el = $('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (type ? ' ' + type : '');
+  clearTimeout(_tt);
+  _tt = setTimeout(() => el.classList.remove('show'), 3200);
+}
+
+/* ── INIT ──────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  if (KEY) {
+    api('GET', '/api/superadmin/stats')
+      .then(showApp)
+      .catch(() => { KEY = ''; sessionStorage.removeItem('sa_key'); });
+  }
+
+  $('key-input').addEventListener('keydown', e => { if (e.key === 'Enter') unlock(); });
+  $('unlock-btn').addEventListener('click', unlock);
+  $('signout-btn').addEventListener('click', signOut);
+  document.querySelectorAll('.nav-item').forEach(el =>
+    el.addEventListener('click', () => switchTab(el.dataset.tab)));
+
+  /* user filters */
+  let _sq;
+  $('usr-q').addEventListener('input', e => {
+    clearTimeout(_sq);
+    _sq = setTimeout(() => { S.usr.q = e.target.value.trim(); S.usr.page = 1; loadUsers(); }, 320);
+  });
+  $('usr-role').addEventListener('change', e => { S.usr.role = e.target.value; S.usr.page = 1; loadUsers(); });
+  $('usr-prev').addEventListener('click', () => { S.usr.page--; loadUsers(); });
+  $('usr-next').addEventListener('click', () => { S.usr.page++; loadUsers(); });
+
+  /* attendance filters */
+  $('att-live').addEventListener('change', e => { S.att.live = e.target.checked ? '1' : ''; S.att.page = 1; loadAtt(); });
+  $('att-from').addEventListener('change', e => { S.att.date_from = e.target.value; S.att.page = 1; loadAtt(); });
+  $('att-to').addEventListener('change',   e => { S.att.date_to   = e.target.value; S.att.page = 1; loadAtt(); });
+  $('att-prev').addEventListener('click',  () => { S.att.page--; loadAtt(); });
+  $('att-next').addEventListener('click',  () => { S.att.page++; loadAtt(); });
+});
+</script>
+</body>
+</html>
