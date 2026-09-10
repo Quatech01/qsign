@@ -22,7 +22,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);
 
 /* ── LOCK ── */
 #lock-screen{display:flex;align-items:center;justify-content:center;
-  min-height:100vh;padding:24px}
+  min-height:100vh;padding:24px;position:relative;z-index:10;background:var(--bg)}
 .lock-card{width:100%;max-width:380px}
 
 .lock-brand{display:flex;flex-direction:column;align-items:center;margin-bottom:36px}
@@ -60,7 +60,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);
 .lock-err.show{display:block}
 
 /* ── APP ── */
-#app{display:flex;height:100vh;position:fixed;top:0;left:0;width:100%;}
+#app{display:flex;height:100vh;position:fixed;top:0;left:0;width:100%;z-index:20;background:var(--bg)}
 
 .sidebar{width:196px;flex-shrink:0;background:var(--panel);
   border-right:1px solid var(--border);
