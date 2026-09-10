@@ -16,6 +16,16 @@
   --radius:12px;
 }
 
+/* Manual theme override — default is dark (dark-first design) */
+:root[data-theme="light"]{
+  --bg:#f1f5f9;--panel:#fff;--border:#e2e8f0;
+  --text:#0f172a;--muted:#64748b;--faint:#e2e8f0;
+  --success:#16a34a;--success-bg:#f0fdf4;
+  --danger:#dc2626;--danger-bg:#fef2f2;
+}
+.theme-btn{width:100%;padding:.45rem .75rem;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--muted);font-family:inherit;font-size:.8rem;cursor:pointer;display:flex;align-items:center;gap:.5rem;transition:background .15s,color .15s;margin-bottom:.5rem}
+.theme-btn:hover{background:var(--border);color:var(--text)}
+.theme-btn svg{flex-shrink:0}
 html,body{height:100%;background:var(--bg);color:var(--text);
   font-family:system-ui,-apple-system,sans-serif;font-size:14px;
   line-height:1.5;-webkit-font-smoothing:antialiased}
@@ -219,6 +229,7 @@ tbody td strong{font-weight:600}
       <li class="nav-item" data-tab="attendance">Attendance</li>
     </ul>
     <div class="sb-foot">
+      <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle theme"></button>
       <button class="signout-btn" id="signout-btn">Sign out</button>
     </div>
   </aside>
@@ -623,6 +634,32 @@ document.addEventListener('DOMContentLoaded', () => {
   $('att-prev').addEventListener('click',  ()=>{ S.att.page--; loadAtt(); });
   $('att-next').addEventListener('click',  ()=>{ S.att.page++; loadAtt(); });
 });
+</script>
+<script>
+(function(){
+  /* Superadmin is dark-first: default=dark, toggle switches to light */
+  var saved=localStorage.getItem('qsign-theme');
+  if(saved) document.documentElement.setAttribute('data-theme',saved);
+  function isDark(){
+    var t=document.documentElement.getAttribute('data-theme');
+    return t!=='light'; /* dark is the default for this page */
+  }
+  function updateBtn(){
+    document.querySelectorAll('.theme-btn').forEach(function(b){
+      b.innerHTML=isDark()
+        ?'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> Light mode'
+        :'<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> Dark mode';
+    });
+  }
+  window.toggleTheme=function(){
+    var next=isDark()?'light':'dark';
+    document.documentElement.setAttribute('data-theme',next);
+    localStorage.setItem('qsign-theme',next);
+    updateBtn();
+  };
+  document.addEventListener('DOMContentLoaded',updateBtn);
+  updateBtn();
+})();
 </script>
 </body>
 </html>
