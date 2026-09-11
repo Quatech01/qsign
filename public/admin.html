@@ -415,7 +415,7 @@ tr:hover td{background:var(--faint)}
       </div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>Name</th><th>Staff ID</th><th>Email</th><th>Department</th><th>This Week</th><th>Pay Rate</th><th id="period-pay-header">Period Pay</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Name</th><th>Staff ID</th><th>Email</th><th>Department</th><th>Shift</th><th>This Week</th><th>Pay Rate</th><th id="period-pay-header">Period Pay</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody id="workers-tbody"></tbody>
         </table>
       </div>
@@ -479,6 +479,21 @@ tr:hover td{background:var(--faint)}
             <option value="weekly">Weekly</option>
           </select>
           <p style="font-size:.72rem;color:var(--muted);margin-top:.4rem">Controls whether payroll totals are calculated per week or per month.</p>
+        </div>
+        <div class="field" style="margin-bottom:1.25rem">
+          <label style="font-size:.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:.35rem">Timezone</label>
+          <select id="co-timezone" style="width:100%;padding:.72rem 1rem;border:1.5px solid var(--border);border-radius:10px;font-size:.95rem;background:var(--panel);color:var(--text);outline:none">
+            <option value="UTC">UTC</option>
+            <option value="Africa/Lagos">Africa/Lagos (WAT — Nigeria, Ghana)</option>
+            <option value="Africa/Nairobi">Africa/Nairobi (EAT — Kenya, Uganda)</option>
+            <option value="Africa/Johannesburg">Africa/Johannesburg (SAST — South Africa)</option>
+            <option value="Africa/Accra">Africa/Accra (GMT — Ghana)</option>
+            <option value="Europe/London">Europe/London (UK)</option>
+            <option value="America/New_York">America/New_York (ET — US East)</option>
+            <option value="America/Chicago">America/Chicago (CT — US Central)</option>
+            <option value="Asia/Dubai">Asia/Dubai (GST)</option>
+          </select>
+          <p style="font-size:.72rem;color:var(--muted);margin-top:.4rem">Used when enforcing worker shift start times. Must match where your workers are located.</p>
         </div>
         <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center">
           <button class="btn-sm btn-blue" style="padding:.5rem 1.25rem;font-size:.85rem" onclick="saveCompany()">Save Changes</button>
@@ -666,6 +681,18 @@ tr:hover td{background:var(--faint)}
           <input type="number" id="wm-pay-rate" placeholder="e.g. 12.50" min="0" step="0.01">
         </div>
         <div class="field"></div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Shift Start Time</label>
+          <input type="time" id="wm-shift-start">
+          <p style="font-size:.72rem;color:var(--muted);margin-top:.3rem">Leave blank for no clock-in restriction.</p>
+        </div>
+        <div class="field">
+          <label>Clock-in Buffer (minutes)</label>
+          <input type="number" id="wm-checkin-buffer" placeholder="e.g. 10" min="0" max="120" step="1">
+          <p style="font-size:.72rem;color:var(--muted);margin-top:.3rem">Minutes allowed before &amp; after shift start.</p>
+        </div>
       </div>
       <div class="field-row">
         <div class="field">
@@ -1262,11 +1289,15 @@ async function loadWorkers() {
           payCell = `<span style="font-size:.82rem;font-weight:700;color:#0f5a2e">£${periodPay.toFixed(2)}</span>
             <span style="font-size:.7rem;color:var(--muted);display:block">${periodHrs.toFixed(1)}h · ${periodLabel}</span>`;
         }
+        const shiftCell = w.shift_start
+          ? `<span style="font-size:.78rem;font-weight:600;color:var(--text)">${w.shift_start.slice(0,5)}</span><span style="font-size:.7rem;color:var(--muted);display:block">±${w.checkin_buffer ?? 10}m</span>`
+          : `<span style="font-size:.78rem;color:var(--muted)">—</span>`;
         return `<tr>
           <td><strong>${w.name}</strong></td>
           <td><span style="font-family:monospace;font-size:.8rem;background:var(--blue-lt);color:var(--blue);padding:.1rem .4rem;border-radius:4px">${w.staff_id || '—'}</span></td>
           <td>${w.email}</td>
           <td>${w.department || '—'}</td>
+          <td>${shiftCell}</td>
           <td>${weekCell}</td>
           <td>${rateCell}</td>
           <td>${payCell}</td>
@@ -1277,7 +1308,7 @@ async function loadWorkers() {
           </td>
         </tr>`;
       }).join('')
-    : '<tr class="empty-row"><td colspan="10">No workers yet</td></tr>';
+    : '<tr class="empty-row"><td colspan="11">No workers yet</td></tr>';
 }
 
 // ── Worker modal — location tab ───────────────────────────────────────────────
@@ -1416,8 +1447,10 @@ async function openWorkerModal(w = null) {
   document.getElementById('wm-email').value        = w?.email || '';
   document.getElementById('wm-dept').value         = w?.department || '';
   document.getElementById('wm-phone').value        = w?.phone || '';
-  document.getElementById('wm-weekly-hours').value = w?.weekly_hours || '';
-  document.getElementById('wm-pay-rate').value     = w?.pay_rate || '';
+  document.getElementById('wm-weekly-hours').value   = w?.weekly_hours || '';
+  document.getElementById('wm-pay-rate').value       = w?.pay_rate || '';
+  document.getElementById('wm-shift-start').value    = w?.shift_start ? w.shift_start.slice(0,5) : '';
+  document.getElementById('wm-checkin-buffer').value = w?.checkin_buffer ?? '';
   document.getElementById('wm-role').value     = w?.role || 'worker';
   document.getElementById('wm-pass').value     = '';
   document.getElementById('wm-pass').placeholder = w ? 'Leave blank to keep current' : 'Min 6 characters';
@@ -1482,7 +1515,9 @@ async function saveWorker() {
   try {
     const weeklyHours = parseFloat(document.getElementById('wm-weekly-hours').value) || null;
   const payRate     = parseFloat(document.getElementById('wm-pay-rate').value) || null;
-  const body = { name, email, staff_id, department: dept||null, phone: phone||null, role, location_id, weekly_hours: weeklyHours, pay_rate: payRate, ...(password && {password}), ...(workerId && {active}) };
+  const shiftStart    = document.getElementById('wm-shift-start').value || null;
+  const checkinBuffer = document.getElementById('wm-checkin-buffer').value;
+  const body = { name, email, staff_id, department: dept||null, phone: phone||null, role, location_id, weekly_hours: weeklyHours, pay_rate: payRate, shift_start: shiftStart, checkin_buffer: checkinBuffer !== '' ? parseInt(checkinBuffer) : null, ...(password && {password}), ...(workerId && {active}) };
     if (workerId) await api('PUT', `/api/admin/workers/${workerId}`, body);
     else          await api('POST', '/api/admin/workers', body);
     closeModal('worker-modal');
@@ -1696,6 +1731,7 @@ async function loadCompany() {
     document.getElementById('co-name').value = c.name || '';
     document.getElementById('co-code').value = c.company_code || '';
     document.getElementById('co-pay-period').value = c.pay_period || 'monthly';
+    document.getElementById('co-timezone').value   = c.timezone || 'UTC';
     companyPayPeriod = c.pay_period || 'monthly';
     document.getElementById('co-err').style.display = 'none';
     document.getElementById('co-ok').style.display = 'none';
@@ -1706,13 +1742,14 @@ async function saveCompany() {
   const name         = document.getElementById('co-name').value.trim();
   const company_code = document.getElementById('co-code').value.trim();
   const pay_period   = document.getElementById('co-pay-period').value;
+  const timezone     = document.getElementById('co-timezone').value;
   const errEl        = document.getElementById('co-err');
   const okEl         = document.getElementById('co-ok');
   errEl.style.display = 'none'; okEl.style.display = 'none';
   if (!name || !company_code) { showErr(errEl, 'Both fields are required'); return; }
   if (company_code.length < 3) { showErr(errEl, 'Code must be at least 3 characters'); return; }
   try {
-    const c = await api('PUT', '/api/admin/company', { name, company_code, pay_period });
+    const c = await api('PUT', '/api/admin/company', { name, company_code, pay_period, timezone });
     companyPayPeriod = c.pay_period || 'monthly';
     document.getElementById('sb-company-code').textContent = 'Code: ' + c.company_code;
     okEl.style.display = 'inline';

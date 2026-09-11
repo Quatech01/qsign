@@ -4,11 +4,15 @@ const pool   = require('../lib/db');
 const { requireAuth } = require('../lib/auth');
 const { haversine } = require('../lib/geo');
 
-// Get the location assigned to this worker
+// Get the location and shift settings for this worker
 async function getWorkerLocation(userId) {
   const { rows: [user] } = await pool.query(
-    `SELECT u.location_id, wl.name, wl.lat, wl.lng, wl.radius_meters, wl.active
-     FROM users u LEFT JOIN work_locations wl ON wl.id = u.location_id
+    `SELECT u.location_id, u.shift_start, u.checkin_buffer,
+            wl.name, wl.lat, wl.lng, wl.radius_meters, wl.active,
+            c.timezone
+     FROM users u
+     LEFT JOIN work_locations wl ON wl.id = u.location_id
+     LEFT JOIN companies c ON c.id = u.company_id
      WHERE u.id = $1`, [userId]
   );
   return user;
@@ -43,6 +47,29 @@ router.post('/checkin', requireAuth, async (req, res) => {
         locationName: user.name,
         radiusMeters: user.radius_meters,
       });
+    }
+
+    if (user.shift_start) {
+      const tz  = user.timezone || 'UTC';
+      const buf = user.checkin_buffer != null ? parseInt(user.checkin_buffer) : 10;
+      const timeStr = new Date().toLocaleTimeString('en-GB', {
+        timeZone: tz, hour12: false, hour: '2-digit', minute: '2-digit',
+      });
+      const [ch, cm] = timeStr.split(':').map(Number);
+      const nowMins = ch * 60 + cm;
+      const [sh, sm] = user.shift_start.split(':').map(Number);
+      const shiftMins = sh * 60 + sm;
+      const earliest = ((shiftMins - buf) + 1440) % 1440;
+      const latest   = (shiftMins + buf) % 1440;
+      const inWindow = earliest <= latest
+        ? nowMins >= earliest && nowMins <= latest
+        : nowMins >= earliest || nowMins <= latest;
+      if (!inWindow) {
+        const fmt = m => `${String(Math.floor(((m+1440)%1440)/60)).padStart(2,'0')}:${String(((m+1440)%1440)%60).padStart(2,'0')}`;
+        return res.status(403).json({
+          error: `Clock-in not allowed — your shift starts at ${user.shift_start.slice(0,5)}. Allowed window: ${fmt(shiftMins-buf)}–${fmt(shiftMins+buf)}`,
+        });
+      }
     }
 
     const { rows: [record] } = await pool.query(
